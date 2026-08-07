@@ -33,7 +33,7 @@ async def get_current_user(
     if payload is None:
         raise credentials_exception
 
-    user_id: str = payload.get("sub")
+    user_id: str | None = payload.get("sub")
     if not user_id:
         raise credentials_exception
 

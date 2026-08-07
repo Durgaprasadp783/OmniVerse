@@ -42,4 +42,5 @@ db = DBProxy()
 # Named collection shortcuts
 users_collection = CollectionProxy("users")
 documents_collection = CollectionProxy("documents")
+files_collection = CollectionProxy("files")
 chat_collection = CollectionProxy("chat_history")
