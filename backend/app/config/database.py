@@ -44,3 +44,8 @@ users_collection = CollectionProxy("users")
 documents_collection = CollectionProxy("documents")
 files_collection = CollectionProxy("files")
 chat_collection = CollectionProxy("chat_history")
+chat_messages_collection = CollectionProxy("chat_messages")
+chunks_collection = CollectionProxy("chunks")
+session_chats_collection = CollectionProxy("session_chats")
+
+

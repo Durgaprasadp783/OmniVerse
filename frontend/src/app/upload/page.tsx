@@ -89,6 +89,10 @@ export default function UploadPage() {
               <Link href="/upload" className="text-indigo-400 font-semibold border-b-2 border-indigo-500 pb-0.5">
                 Document Upload
               </Link>
+              <Link href="/chat" className="text-zinc-400 hover:text-zinc-200 transition">
+                RAG Chat
+              </Link>
+
             </nav>
           </div>
 

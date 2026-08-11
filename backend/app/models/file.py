@@ -14,6 +14,9 @@ class FileModel:
         file_type: str,
         size: int,
         path: str,
+        extracted_text: str = "",
+        page_count: int = 0,
+        processed: bool = False,
         created_at: Optional[datetime] = None,
         updated_at: Optional[datetime] = None,
         _id: Optional[ObjectId] = None,
@@ -25,6 +28,9 @@ class FileModel:
         self.file_type = file_type
         self.size = size
         self.path = path
+        self.extracted_text = extracted_text
+        self.page_count = page_count
+        self.processed = processed
         now = datetime.now(timezone.utc)
         self.created_at = created_at or now
         self.updated_at = updated_at or now
@@ -38,6 +44,10 @@ class FileModel:
             "fileType": self.file_type,
             "size": self.size,
             "path": self.path,
+            "extractedText": self.extracted_text,
+            "pageCount": self.page_count,
+            "processed": self.processed,
             "createdAt": self.created_at,
             "updatedAt": self.updated_at,
         }
+

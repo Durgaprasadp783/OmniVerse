@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api.auth import router as auth_router
+from app.api.chat import router as chat_router
 from app.api.files import router as files_router
 
 app = FastAPI(
@@ -29,6 +30,7 @@ app.mount("/uploads", StaticFiles(directory=uploads_path), name="uploads")
 # ── Routers ────────────────────────────────────────────────────────────────────
 app.include_router(auth_router)
 app.include_router(files_router)
+app.include_router(chat_router)
 
 
 # ── Root Endpoints ─────────────────────────────────────────────────────────────

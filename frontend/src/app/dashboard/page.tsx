@@ -52,6 +52,14 @@ export default function DashboardPage() {
               <Link href="/upload" className="text-zinc-400 hover:text-zinc-200 transition">
                 Document Upload
               </Link>
+              <Link href="/chat" className="text-zinc-400 hover:text-zinc-200 transition">
+                RAG Chat
+              </Link>
+              <Link href="/history" className="text-zinc-400 hover:text-zinc-200 transition">
+                Chat History
+              </Link>
+
+
             </nav>
           </div>
 
