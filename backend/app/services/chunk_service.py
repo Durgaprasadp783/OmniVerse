@@ -1,18 +1,19 @@
 import re
 from typing import List
 
-DEFAULT_CHUNK_SIZE = 1000
-DEFAULT_CHUNK_OVERLAP = 200
+DEFAULT_CHUNK_SIZE = 800
+DEFAULT_CHUNK_OVERLAP = 150
 
 
 def clean_text(text: str) -> str:
-    """Clean text by normalizing newlines and whitespace."""
+    """Clean extracted PDF text before chunking."""
     if not text:
         return ""
-    text = text.replace("\r\n", "\n")
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
     text = re.sub(r"[ \t]+", " ", text)
-    text = re.sub(r"\n{3,}", "\n\n", text)
-    return text.strip()
+    lines = [line.strip() for line in text.split("\n") if line.strip()]
+    return "\n".join(lines)
+
 
 
 def split_text_into_chunks(
@@ -21,8 +22,15 @@ def split_text_into_chunks(
     overlap: int = DEFAULT_CHUNK_OVERLAP,
 ) -> List[str]:
     """
-    Split text into chunks of specified size with overlap,
-    preserving sentence and paragraph boundaries where possible.
+    Split text into word-based chunks of specified size with overlap.
+
+    Args:
+        text: Input text string.
+        chunk_size: Target number of words per chunk (default 800).
+        overlap: Number of overlapping words between consecutive chunks (default 150).
+
+    Returns:
+        List of chunk strings.
     """
     if not text or not text.strip():
         return []
@@ -34,36 +42,22 @@ def split_text_into_chunks(
     if not cleaned_text:
         return []
 
+    words = re.split(r"\s+", cleaned_text)
     chunks = []
     start = 0
-    text_length = len(cleaned_text)
+    words_count = len(words)
 
-    while start < text_length:
-        end = min(start + chunk_size, text_length)
-
-        # Prefer ending at a paragraph or sentence boundary
-        if end < text_length:
-            boundary = cleaned_text.rfind("\n\n", start, end)
-
-            if boundary > start + chunk_size * 0.5:
-                end = boundary
-            else:
-                s1 = cleaned_text.rfind(". ", start, end)
-                s2 = cleaned_text.rfind("? ", start, end)
-                s3 = cleaned_text.rfind("! ", start, end)
-                sentence_boundary = max(s1, s2, s3)
-
-                if sentence_boundary > start + chunk_size * 0.5:
-                    end = sentence_boundary + 1
-
-        chunk = cleaned_text[start:end].strip()
+    while start < words_count:
+        end = min(start + chunk_size, words_count)
+        chunk = " ".join(words[start:end]).strip()
 
         if chunk:
             chunks.append(chunk)
 
-        if end >= text_length:
+        if end >= words_count:
             break
 
-        start = max(end - overlap, start + 1)
+        start = end - overlap
 
     return chunks
+

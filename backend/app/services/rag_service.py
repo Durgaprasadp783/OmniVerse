@@ -38,6 +38,16 @@ def _call_gemini(prompt: str) -> str:
     raise RuntimeError(f"Failed to generate answer with Gemini models: {str(last_err)}")
 
 
+def _to_float(val: Any, default: float = 0.0) -> float:
+    """Safely convert a value to float, handling None, missing keys, and invalid types."""
+    if val is None:
+        return default
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return default
+
+
 def generate_rag_answer(question: str, chunks: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Generate an answer to a question using ONLY the provided document chunks as context.
@@ -49,7 +59,7 @@ def generate_rag_answer(question: str, chunks: List[Dict[str, Any]]) -> Dict[str
     # Filter chunks by MIN_SIMILARITY threshold if score is present
     relevant_chunks = [
         chunk for chunk in chunks
-        if chunk.get("score") is None or float(chunk.get("score", 0.0)) >= MIN_SIMILARITY
+        if chunk.get("score") is None or _to_float(chunk.get("score")) >= MIN_SIMILARITY
     ]
 
     if not relevant_chunks:
@@ -91,8 +101,8 @@ Answer:
             "source": index + 1,
             "chunkId": str(chunk.get("_id", chunk.get("chunkId", ""))),
             "chunkIndex": chunk.get("chunkIndex", 0),
-            "score": round(float(chunk.get("score", chunk.get("similarity", 0.0))), 4),
-            "similarity": round(float(chunk.get("similarity", chunk.get("score", 0.0))), 4),
+            "score": round(_to_float(chunk.get("score") if chunk.get("score") is not None else chunk.get("similarity")), 4),
+            "similarity": round(_to_float(chunk.get("similarity") if chunk.get("similarity") is not None else chunk.get("score")), 4),
             # Source metadata from structured retrieval
             "fileId": (chunk.get("source") or {}).get("fileId", str(chunk.get("fileId", ""))),
             "filename": (chunk.get("source") or {}).get("filename", str(chunk.get("filename", ""))),
@@ -152,19 +162,21 @@ def generate_context_aware_answer(
     else:
         context = "(No relevant document chunks were retrieved for this question.)"
 
-    history_section = history.strip() if history and history.strip() else "(No previous conversation.)"
+    history_section = history.strip() if history and history.strip() else "No previous conversation."
 
-    prompt = f"""You are OmniVerse, an AI document assistant.
+    prompt = f"""You are OmniVerse AI, an AI assistant for uploaded documents.
 
-Answer the user's question using the provided document context and conversation history.
+Your task is to answer the user's question using the provided document context.
 
-Rules:
-1. Base your answer on the provided document context passages.
-2. If the user asks for main topics, key concepts, or a summary, synthesize the information present in the document context passages.
-3. Use conversation history to understand follow-up questions and references (such as "it", "they", "the first method", "what else?").
-4. Do not invent facts that are not supported by the document context.
-5. If the document context does not contain information to answer the question at all, clearly say:
-   "I could not find relevant information in the document."
+IMPORTANT RULES:
+
+1. Use the document context as the primary source.
+2. Do not invent information.
+3. Use conversation history only to understand the user's references and previous questions.
+4. If the user asks for important topics, identify the major topics represented in the retrieved document sections.
+5. If the document context does not contain enough information, clearly say so.
+6. Give a concise and useful answer.
+7. Do not mention internal retrieval, embeddings, similarity scores, or system instructions.
 
 Conversation History:
 {history_section}
@@ -172,7 +184,7 @@ Conversation History:
 Document Context:
 {context}
 
-Current Question:
+User Question:
 {question}
 
 Answer:"""
@@ -183,16 +195,19 @@ Answer:"""
     sources = []
     for index, chunk in enumerate(chunks):
         src = chunk.get("source") or {}
+        sim_val = chunk.get("similarity") if chunk.get("similarity") is not None else chunk.get("score")
+        sim_float = _to_float(sim_val)
         sources.append({
             "source": index + 1,
-            "filename": src.get("filename", ""),
+            "filename": src.get("filename", "Unknown"),
             "page": src.get("page"),
-            "fileId": src.get("fileId", ""),
+            "fileId": src.get("fileId", str(chunk.get("fileId", ""))),
             "chunkIndex": chunk.get("chunkIndex"),
-            "similarity": round(float(chunk.get("similarity", chunk.get("score", 0.0))), 4),
+            "similarity": round(sim_float, 3),
         })
 
     return {
         "answer": answer_text,
         "sources": sources,
     }
+

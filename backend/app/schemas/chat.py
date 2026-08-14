@@ -21,6 +21,10 @@ class AskRequestSchema(BaseModel):
         None,
         description="Optional: restrict vector search to a specific document",
     )
+    fileIds: Optional[List[str]] = Field(
+        None,
+        description="Optional: restrict vector search to multiple specific documents",
+    )
 
 
 # ── Response schemas ──────────────────────────────────────────────────────────
@@ -34,6 +38,28 @@ class SessionChatResponseSchema(BaseModel):
     message: str
     createdAt: Optional[datetime] = None
     updatedAt: Optional[datetime] = None
+
+
+class ChatSessionResponseSchema(BaseModel):
+    """Chat session item metadata."""
+    id: str
+    sessionId: str
+    title: str
+    fileIds: List[str] = []
+    lastMessage: Optional[str] = ""
+    createdAt: Optional[datetime] = None
+    updatedAt: Optional[datetime] = None
+
+
+class CreateSessionRequestSchema(BaseModel):
+    """Body for creating a new chat session."""
+    title: Optional[str] = Field("New Chat", max_length=100)
+    fileIds: Optional[List[str]] = []
+
+
+class RenameSessionRequestSchema(BaseModel):
+    """Body for renaming a chat session."""
+    title: str = Field(..., min_length=1, max_length=100)
 
 
 class AskSourceSchema(BaseModel):

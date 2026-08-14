@@ -16,6 +16,7 @@ class FileModel:
         path: str,
         extracted_text: str = "",
         page_count: int = 0,
+        word_count: int = 0,
         processed: bool = False,
         created_at: Optional[datetime] = None,
         updated_at: Optional[datetime] = None,
@@ -30,6 +31,7 @@ class FileModel:
         self.path = path
         self.extracted_text = extracted_text
         self.page_count = page_count
+        self.word_count = word_count
         self.processed = processed
         now = datetime.now(timezone.utc)
         self.created_at = created_at or now
@@ -46,6 +48,7 @@ class FileModel:
             "path": self.path,
             "extractedText": self.extracted_text,
             "pageCount": self.page_count,
+            "wordCount": self.word_count,
             "processed": self.processed,
             "createdAt": self.created_at,
             "updatedAt": self.updated_at,

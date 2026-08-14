@@ -37,6 +37,30 @@ class CollectionProxy:
         return getattr(get_db()[self._name], method_name)
 
 
+async def init_db_indexes():
+    """
+    Ensure all standard collection indexes exist on startup for query performance and security enforcement.
+    """
+    try:
+        target_db = get_db()
+
+        # Users: unique email index
+        await target_db["users"].create_index("email", unique=True)
+
+        # Files: user index sorted by creation date
+        await target_db["files"].create_index([("userId", 1), ("createdAt", -1)])
+
+        # Chunks: compound index for fast user+file retrieval
+        await target_db["chunks"].create_index([("userId", 1), ("fileId", 1), ("chunkIndex", 1)])
+
+        # Session chats: user + session thread history index
+        await target_db["session_chats"].create_index([("userId", 1), ("sessionId", 1), ("createdAt", 1)])
+
+        print("✅ MongoDB database indexes verified successfully.")
+    except Exception as err:
+        print(f"⚠️ Index initialization warning: {err}")
+
+
 db = DBProxy()
 
 # Named collection shortcuts
@@ -47,5 +71,8 @@ chat_collection = CollectionProxy("chat_history")
 chat_messages_collection = CollectionProxy("chat_messages")
 chunks_collection = CollectionProxy("chunks")
 session_chats_collection = CollectionProxy("session_chats")
+chat_sessions_collection = CollectionProxy("chat_sessions")
+
+
 
 

@@ -6,7 +6,7 @@ from bson import ObjectId
 
 
 @pytest.mark.asyncio
-async def test_full_phase5_e2e_pipeline():
+async def test_full_phase5_e2e_pipeline(monkeypatch):
     """
     End-to-End test suite for Phase 5 OmniVerse RAG Pipeline:
       1. Register User A & User B
@@ -19,6 +19,15 @@ async def test_full_phase5_e2e_pipeline():
       8. Security (Unauthorized 401 checks)
       9. File type & input validation bounds
     """
+    monkeypatch.setattr(
+        "app.services.embedding_service.generate_embedding",
+        lambda text: [0.1] * 768,
+    )
+    monkeypatch.setattr(
+        "app.services.rag_service._call_gemini",
+        lambda prompt: "Synthetic Gemini Answer",
+    )
+
     # ── 1. Register & Login User A ───────────────────────────────────────────
     user_a_data = {
         "name": "Phase5 UserA",

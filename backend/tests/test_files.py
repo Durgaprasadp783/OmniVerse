@@ -8,14 +8,14 @@ async def test_file_upload_and_delete(async_client):
         "/api/auth/register",
         json={
             "name": "Durga Prasad",
-            "email": "durga@example.com",
+            "email": "durga_files_test@example.com",
             "password": "StrongPassword123!",
         },
     )
     login_res = await async_client.post(
         "/api/auth/login",
         json={
-            "email": "durga@example.com",
+            "email": "durga_files_test@example.com",
             "password": "StrongPassword123!",
         },
     )

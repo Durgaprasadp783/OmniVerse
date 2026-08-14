@@ -16,12 +16,90 @@ from app.auth.rate_limiter import chat_limiter
 from app.schemas.chat import (
     AskRequestSchema,
     AskResponseSchema,
+    ChatSessionResponseSchema,
+    CreateSessionRequestSchema,
+    RenameSessionRequestSchema,
     SaveMessageRequestSchema,
     SessionChatResponseSchema,
 )
-from app.services.chat_service import context_aware_chat, get_session_history, save_message
+from app.services.chat_service import (
+    context_aware_chat,
+    delete_chat_session,
+    get_session_history,
+    get_user_chat_sessions,
+    rename_chat_session,
+    save_message,
+    touch_chat_session,
+)
 
 router = APIRouter(prefix="/api/chat", tags=["Chat"])
+
+
+@router.get(
+    "/sessions",
+    response_model=List[ChatSessionResponseSchema],
+    status_code=status.HTTP_200_OK,
+    summary="Get all chat sessions for user",
+)
+async def get_sessions(
+    current_user: dict = Depends(get_current_user),
+):
+    """Retrieve list of user's saved chat sessions ordered by latest updated."""
+    user_id = str(current_user["_id"])
+    return await get_user_chat_sessions(user_id=user_id)
+
+
+@router.post(
+    "/sessions",
+    response_model=ChatSessionResponseSchema,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new chat session",
+)
+async def create_session(
+    payload: CreateSessionRequestSchema,
+    current_user: dict = Depends(get_current_user),
+):
+    """Create a new named chat session."""
+    import uuid
+    user_id = str(current_user["_id"])
+    new_session_id = f"session-{uuid.uuid4()}"
+    return await touch_chat_session(
+        user_id=user_id,
+        session_id=new_session_id,
+        title=payload.title or "New Chat",
+        file_ids=payload.fileIds or [],
+    )
+
+
+@router.patch(
+    "/sessions/{session_id}",
+    response_model=ChatSessionResponseSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Rename a chat session",
+)
+async def rename_session(
+    session_id: str,
+    payload: RenameSessionRequestSchema,
+    current_user: dict = Depends(get_current_user),
+):
+    """Rename an existing chat session."""
+    user_id = str(current_user["_id"])
+    return await rename_chat_session(user_id=user_id, session_id=session_id, new_title=payload.title)
+
+
+@router.delete(
+    "/sessions/{session_id}",
+    status_code=status.HTTP_200_OK,
+    summary="Delete a chat session and its history",
+)
+async def delete_session(
+    session_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Delete a chat session and all messages within it."""
+    user_id = str(current_user["_id"])
+    await delete_chat_session(user_id=user_id, session_id=session_id)
+    return {"message": "Chat session deleted successfully"}
 
 
 @router.post(
@@ -35,14 +113,6 @@ async def post_message(
     payload: SaveMessageRequestSchema,
     current_user: dict = Depends(get_current_user),
 ):
-    """
-    Persist a user or assistant message for a chat session.
-
-    Body:
-        sessionId  – free-form session identifier (e.g. "test-session-1")
-        role       – "user" | "assistant"
-        message    – the message text
-    """
     if not payload.sessionId.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -79,12 +149,6 @@ async def get_history(
     session_id: str,
     current_user: dict = Depends(get_current_user),
 ):
-    """
-    Retrieve all messages in a chat session for the current user,
-    ordered oldest-first (chronological).
-
-    Returns an empty list if no messages have been saved yet.
-    """
     user_id = str(current_user["_id"])
     history = await get_session_history(user_id=user_id, session_id=session_id)
     return history
@@ -101,16 +165,6 @@ async def ask(
     payload: AskRequestSchema,
     current_user: dict = Depends(get_current_user),
 ):
-    """
-    Full context-aware RAG pipeline in one call:
-        1. Load the last 10 turns of conversation history
-        2. Format history for the Gemini prompt
-        3. Embed the user's question
-        4. Vector-search user's documents (optionally scoped to fileId)
-        5. Build history-aware prompt and call Gemini
-        6. Persist user message + assistant answer to session_chats
-        7. Return { answer, sessionId, sources }
-    """
     if not payload.sessionId.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -135,7 +189,10 @@ async def ask(
             session_id=payload.sessionId,
             message=payload.message,
             file_id=payload.fileId,
+            file_ids=payload.fileIds,
         )
+    except HTTPException:
+        raise
     except ValueError as err:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err))
     except Exception as err:
@@ -158,9 +215,6 @@ async def chat(
     payload: AskRequestSchema,
     current_user: dict = Depends(get_current_user),
 ):
-    """
-    POST /api/chat — the primary OmniVerse chat endpoint (Phase 5 Step 4).
-    """
     if not payload.sessionId.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -185,7 +239,10 @@ async def chat(
             session_id=payload.sessionId,
             message=payload.message,
             file_id=payload.fileId,
+            file_ids=payload.fileIds,
         )
+    except HTTPException:
+        raise
     except ValueError as err:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err))
     except Exception as err:
@@ -195,3 +252,4 @@ async def chat(
         )
 
     return result
+

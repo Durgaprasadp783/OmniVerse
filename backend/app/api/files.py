@@ -191,6 +191,71 @@ async def clear_chat_history(
 
 
 
+from fastapi.responses import FileResponse
+from app.schemas.file import AdvancedSearchRequestSchema, RenameFileRequestSchema
+from app.services.vector_search_service import hybrid_search_chunks
+
+
+@router.get(
+    "/{file_id}/download",
+    status_code=status.HTTP_200_OK,
+    summary="Download original file document",
+)
+async def download_file(
+    file_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Download an uploaded file by ID."""
+    user_id = str(current_user["_id"])
+    abs_path, original_filename = await FileService.get_user_file_download_info(user_id=user_id, file_id=file_id)
+    return FileResponse(
+        path=abs_path,
+        filename=original_filename,
+        media_type="application/octet-stream",
+    )
+
+
+@router.patch(
+    "/{file_id}",
+    response_model=FileResponseSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Rename an uploaded document",
+)
+async def rename_file(
+    file_id: str,
+    payload: RenameFileRequestSchema,
+    current_user: dict = Depends(get_current_user),
+):
+    """Rename an uploaded document."""
+    user_id = str(current_user["_id"])
+    return await FileService.rename_user_file(user_id=user_id, file_id=file_id, new_name=payload.name)
+
+
+@router.post(
+    "/search/advanced",
+    status_code=status.HTTP_200_OK,
+    summary="Advanced hybrid vector + keyword search",
+)
+async def advanced_search(
+    payload: AdvancedSearchRequestSchema,
+    current_user: dict = Depends(get_current_user),
+):
+    """Perform hybrid search over user documents with vector similarity, keyword matching, and page filters."""
+    user_id = str(current_user["_id"])
+    results = await hybrid_search_chunks(
+        user_id=user_id,
+        query=payload.query,
+        file_ids=payload.fileIds,
+        page_filter=payload.page,
+        top_k=payload.topK or 5,
+    )
+    return {
+        "success": True,
+        "query": payload.query,
+        "results": results,
+    }
+
+
 @router.delete(
     "/{file_id}",
     status_code=status.HTTP_200_OK,

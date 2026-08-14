@@ -8,7 +8,7 @@ from app.config.database import chunks_collection
 def test_clean_text():
     raw = "Hello \t world!\r\n\r\nThis is   a test.\n\n\n\nEnd."
     cleaned = clean_text(raw)
-    assert cleaned == "Hello world!\n\nThis is a test.\n\nEnd."
+    assert cleaned == "Hello world!\nThis is a test.\nEnd."
 
 
 def test_split_text_into_chunks_basic():
@@ -23,13 +23,13 @@ def test_split_text_into_chunks_overlap_error():
         split_text_into_chunks("Sample text", chunk_size=100, overlap=100)
 
 
-
 def test_split_text_into_chunks_large():
-    sentence = "This is a long sentence used for chunking testing. " * 30  # ~2500 chars
-    chunks = split_text_into_chunks(sentence, chunk_size=500, overlap=100)
+    sentence = "This is a long sentence used for chunking testing. " * 30  # ~300 words
+    chunks = split_text_into_chunks(sentence, chunk_size=50, overlap=10)
     assert len(chunks) > 1
     for chunk in chunks:
-        assert len(chunk) <= 500
+        assert len(chunk.split()) <= 50
+
 
 
 @pytest.mark.asyncio
@@ -454,6 +454,35 @@ async def test_chat_file_endpoint(async_client, monkeypatch):
         headers=headers_a,
     )
     assert len(post_clear_hist.json()) == 0
+
+
+def test_normalize_text():
+    from app.services.vector_search_service import normalize_text
+
+    assert normalize_text("  Jenkins   is a   CI tool.  ") == "jenkins is a ci tool."
+    assert normalize_text("JENKINS\n\nis\ta CI  tool.") == "jenkins is a ci tool."
+    assert normalize_text("") == ""
+    assert normalize_text(None) == ""
+
+
+def test_remove_duplicate_chunks():
+    from app.services.vector_search_service import remove_duplicate_chunks
+
+    chunks = [
+        {"_id": "1", "text": "Jenkins is a CI tool.", "score": 0.549},
+        {"_id": "2", "text": "Jenkins   is a CI tool.", "score": 0.549},  # Duplicate text (whitespace)
+        {"_id": "1", "text": "Different text with duplicate ID", "score": 0.547},  # Duplicate ID
+        {"_id": "3", "text": "Jenkins architecture is master-worker.", "score": 0.542},
+        {"_id": "4", "text": "Jenkins pipelines automate builds.", "score": 0.539},
+    ]
+
+    unique = remove_duplicate_chunks(chunks)
+
+    assert len(unique) == 3
+    assert unique[0]["_id"] == "1"
+    assert unique[1]["_id"] == "3"
+    assert unique[2]["_id"] == "4"
+
 
 
 

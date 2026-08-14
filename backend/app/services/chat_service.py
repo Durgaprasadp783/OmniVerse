@@ -1,9 +1,11 @@
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from bson import ObjectId
 
 from app.config.database import session_chats_collection
 from app.models.chat_message import SessionChatModel
+from app.services.embedding_service import generate_embedding
 
 # Maximum history turns sent to Gemini (keeps prompt size reasonable)
 MAX_HISTORY_TURNS = 10
@@ -105,23 +107,19 @@ async def context_aware_chat(
     session_id: str,
     message: str,
     file_id: Optional[str] = None,
+    file_ids: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """
-    Full context-aware RAG pipeline:
+    Full context-aware RAG pipeline supporting single/multi-document search:
 
         1. Fetch the last MAX_HISTORY_TURNS turns from this session
         2. Format them into a history string
         3. Embed the user's current question
-        4. Vector-search the user's documents (optionally scoped to file_id)
-        5. Build a history-aware prompt and call Gemini
-        6. Save the user message  (before Gemini — so it's always persisted)
-        7. Save the assistant answer
-        8. Return { answer, sessionId, sources }
-
-    This implements the architecture from Phase 5 Step 3:
-        User question → Chat history → Vector search → Gemini → Context-aware answer
+        4. Vector-search user's documents (scoped to single file_id or list of file_ids)
+        5. Rerank candidates and build context-aware prompt for Gemini
+        6. Save user message + assistant answer
+        7. Return { answer, sessionId, sources }
     """
-    from app.services.embedding_service import generate_embedding
     from app.services.rag_service import generate_context_aware_answer
     from app.services.vector_search_service import search_similar_chunks
 
@@ -134,24 +132,48 @@ async def context_aware_chat(
     # ── 3. Embed the current question ─────────────────────────────────────────
     query_embedding = generate_embedding(message)
 
-    # ── 4. Vector search (user-scoped, optionally file-scoped) ───────────────
-    # Determine filename for source metadata if file_id is given
+    # ── 4. Combine file_id and file_ids list ──────────────────────────────────
+    target_file_ids: List[str] = []
+    if file_ids:
+        target_file_ids.extend(file_ids)
+    if file_id and file_id not in target_file_ids:
+        target_file_ids.append(file_id)
+
     filename: Optional[str] = None
-    if file_id:
+    if target_file_ids:
         from app.config.database import files_collection
-        try:
-            from bson import ObjectId as OID
-            f = await files_collection.find_one({"_id": OID(file_id)})
-            if f:
-                filename = f.get("originalName")
-        except Exception:
-            pass
+        from fastapi import HTTPException, status
+        user_obj_id = ObjectId(user_id) if ObjectId.is_valid(user_id) else user_id
+
+        for fid in target_file_ids:
+            try:
+                file_obj_id = ObjectId(fid) if ObjectId.is_valid(fid) else fid
+                f = await files_collection.find_one({
+                    "_id": file_obj_id,
+                    "userId": {"$in": [user_id, user_obj_id]},
+                })
+                if not f:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Document not found",
+                    )
+                if len(target_file_ids) == 1:
+                    filename = f.get("originalName")
+            except HTTPException:
+                raise
+            except Exception:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Document not found",
+                )
 
     retrieved_chunks = await search_similar_chunks(
         user_id=user_id,
         query_embedding=query_embedding,
-        file_id=file_id,
+        file_id=file_id if not target_file_ids else None,
+        file_ids=target_file_ids if target_file_ids else None,
         filename=filename,
+        query_text=message,
     )
 
     # ── 5. Generate context-aware answer ─────────────────────────────────────
@@ -179,11 +201,105 @@ async def context_aware_chat(
         message=answer,
     )
 
+    # Update session metadata if chat_session exists or auto-create it (safe non-blocking)
+    try:
+        await touch_chat_session(user_id, session_id, last_message=answer, file_ids=target_file_ids)
+    except Exception as err:
+        print(f"Notice: touch_chat_session: {err}")
+
     # ── 8. Return structured response ─────────────────────────────────────────
     return {
         "answer": answer,
         "sessionId": session_id,
         "sources": sources,
+    }
+
+
+async def touch_chat_session(
+    user_id: str,
+    session_id: str,
+    title: Optional[str] = None,
+    last_message: str = "",
+    file_ids: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """Create or update session record in chat_sessions_collection."""
+    from app.config.database import chat_sessions_collection
+    from app.models.chat_session import ChatSessionModel
+
+    user_obj_id = ObjectId(user_id) if ObjectId.is_valid(user_id) else user_id
+    existing = await chat_sessions_collection.find_one({
+        "userId": {"$in": [user_id, user_obj_id]},
+        "sessionId": session_id,
+    })
+
+    if existing:
+        update_fields: Dict[str, Any] = {"updatedAt": datetime.now(timezone.utc)}
+        if last_message:
+            update_fields["lastMessage"] = last_message[:100]
+        if title:
+            update_fields["title"] = title
+        if file_ids:
+            update_fields["fileIds"] = file_ids
+        await chat_sessions_collection.update_one(
+            {"_id": existing["_id"]},
+            {"$set": update_fields},
+        )
+        saved = await chat_sessions_collection.find_one({"_id": existing["_id"]})
+        return _format_session(saved)
+    else:
+        doc = ChatSessionModel(
+            user_id=user_id,
+            session_id=session_id,
+            title=title or f"Chat {session_id[:8]}",
+            file_ids=file_ids or [],
+            last_message=last_message[:100],
+        )
+        await chat_sessions_collection.insert_one(doc.to_dict())
+        saved = await chat_sessions_collection.find_one({"_id": doc._id})
+        return _format_session(saved)
+
+
+async def get_user_chat_sessions(user_id: str) -> List[Dict[str, Any]]:
+    """Retrieve all chat sessions for user sorted by updatedAt desc."""
+    from app.config.database import chat_sessions_collection
+    user_obj_id = ObjectId(user_id) if ObjectId.is_valid(user_id) else user_id
+    cursor = chat_sessions_collection.find({
+        "userId": {"$in": [user_id, user_obj_id]}
+    }).sort("updatedAt", -1)
+    docs = await cursor.to_list(length=500)
+    return [_format_session(d) for d in docs]
+
+
+async def rename_chat_session(user_id: str, session_id: str, new_title: str) -> Dict[str, Any]:
+    """Rename a user chat session."""
+    return await touch_chat_session(user_id, session_id, title=new_title)
+
+
+async def delete_chat_session(user_id: str, session_id: str) -> bool:
+    """Delete session metadata and all messages belonging to session."""
+    from app.config.database import chat_sessions_collection, session_chats_collection
+    user_obj_id = ObjectId(user_id) if ObjectId.is_valid(user_id) else user_id
+
+    await session_chats_collection.delete_many({
+        "userId": {"$in": [user_id, user_obj_id]},
+        "sessionId": session_id,
+    })
+    await chat_sessions_collection.delete_many({
+        "userId": {"$in": [user_id, user_obj_id]},
+        "sessionId": session_id,
+    })
+    return True
+
+
+def _format_session(doc: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "id": str(doc["_id"]),
+        "sessionId": doc.get("sessionId", ""),
+        "title": doc.get("title", "Untitled Chat"),
+        "fileIds": doc.get("fileIds", []),
+        "lastMessage": doc.get("lastMessage", ""),
+        "createdAt": doc.get("createdAt"),
+        "updatedAt": doc.get("updatedAt"),
     }
 
 
@@ -199,3 +315,4 @@ def _format(doc: Dict[str, Any]) -> Dict[str, Any]:
         "createdAt": doc.get("createdAt"),
         "updatedAt": doc.get("updatedAt"),
     }
+

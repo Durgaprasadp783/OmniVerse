@@ -36,6 +36,11 @@ UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file
 
 def format_file_doc(doc: dict) -> dict:
     """Format MongoDB document into a clean API response dict."""
+    extracted_text = doc.get("extractedText", "")
+    word_count = doc.get("wordCount")
+    if word_count is None:
+        word_count = len(extracted_text.split()) if extracted_text else 0
+
     return {
         "id": str(doc["_id"]),
         "_id": str(doc["_id"]),
@@ -45,8 +50,9 @@ def format_file_doc(doc: dict) -> dict:
         "fileType": doc.get("fileType"),
         "size": doc.get("size"),
         "path": doc.get("path"),
-        "extractedText": doc.get("extractedText", ""),
+        "extractedText": extracted_text,
         "pageCount": doc.get("pageCount", 0),
+        "wordCount": word_count,
         "processed": doc.get("processed", False),
         "createdAt": doc.get("createdAt"),
         "updatedAt": doc.get("updatedAt"),
@@ -144,7 +150,7 @@ class FileService:
 
     @staticmethod
     async def delete_user_file(user_id: str, file_id: str) -> bool:
-        """Delete file record and physical file from disk."""
+        """Delete file record, physical file from disk, and associated chunks/messages."""
         try:
             obj_id = ObjectId(file_id)
         except Exception:
@@ -153,7 +159,11 @@ class FileService:
                 detail="Invalid file ID format",
             )
 
-        file_doc = await files_collection.find_one({"_id": obj_id, "userId": user_id})
+        user_obj_id = ObjectId(user_id) if ObjectId.is_valid(user_id) else user_id
+        file_doc = await files_collection.find_one({
+            "_id": obj_id,
+            "userId": {"$in": [user_id, user_obj_id]},
+        })
         if not file_doc:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -172,8 +182,72 @@ class FileService:
                 except OSError:
                     pass
 
+        # Cascade delete chunks and chat messages
+        await chunks_collection.delete_many({
+            "fileId": {"$in": [file_id, obj_id]},
+            "userId": {"$in": [user_id, user_obj_id]},
+        })
+        await chat_messages_collection.delete_many({
+            "fileId": {"$in": [file_id, obj_id]},
+            "userId": {"$in": [user_id, user_obj_id]},
+        })
+
         await files_collection.delete_one({"_id": obj_id})
         return True
+
+    @staticmethod
+    async def rename_user_file(user_id: str, file_id: str, new_name: str) -> dict:
+        """Rename an uploaded document."""
+        if not new_name or not new_name.strip():
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="New filename required")
+
+        try:
+            obj_id = ObjectId(file_id)
+        except Exception:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid file ID format")
+
+        user_obj_id = ObjectId(user_id) if ObjectId.is_valid(user_id) else user_id
+        file_doc = await files_collection.find_one({
+            "_id": obj_id,
+            "userId": {"$in": [user_id, user_obj_id]},
+        })
+        if not file_doc:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+
+        now = datetime.now(timezone.utc)
+        clean_name = new_name.strip()
+        await files_collection.update_one(
+            {"_id": obj_id},
+            {"$set": {"originalName": clean_name, "updatedAt": now}},
+        )
+
+        updated_doc = await files_collection.find_one({"_id": obj_id})
+        return format_file_doc(updated_doc)
+
+    @staticmethod
+    async def get_user_file_download_info(user_id: str, file_id: str) -> tuple:
+        """Retrieve absolute file path and original filename for downloading."""
+        try:
+            obj_id = ObjectId(file_id)
+        except Exception:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid file ID format")
+
+        user_obj_id = ObjectId(user_id) if ObjectId.is_valid(user_id) else user_id
+        file_doc = await files_collection.find_one({
+            "_id": obj_id,
+            "userId": {"$in": [user_id, user_obj_id]},
+        })
+        if not file_doc:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+
+        rel_path = file_doc.get("path", "")
+        abs_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__))), rel_path
+        )
+        if not os.path.exists(abs_path):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File content not found on disk")
+
+        return abs_path, file_doc.get("originalName", "downloaded_file")
 
     @staticmethod
     async def process_file(user_id: str, file_id: str) -> dict:
@@ -209,6 +283,7 @@ class FileService:
 
         extracted_text = result.get("text", "")
         pages_count = result.get("pages", 0)
+        pages_data = result.get("pagesData", [])
 
         now = datetime.now(timezone.utc)
         await files_collection.update_one(
@@ -217,6 +292,7 @@ class FileService:
                 "$set": {
                     "extractedText": extracted_text,
                     "pageCount": pages_count,
+                    "pagesData": pages_data,
                     "processed": True,
                     "updatedAt": now,
                 }
@@ -265,24 +341,50 @@ class FileService:
             "userId": {"$in": [user_id, user_obj_id]},
         })
 
-        chunks = split_text_into_chunks(file_doc["extractedText"])
+        pages_data = file_doc.get("pagesData", [])
+        chunk_documents = []
+        chunk_index = 0
 
-        if not chunks:
+        if pages_data:
+            for page_info in pages_data:
+                page_num = page_info.get("page")
+                page_text = page_info.get("text", "")
+                page_chunks = split_text_into_chunks(page_text, chunk_size=800, overlap=150)
+                for chunk_text in page_chunks:
+                    chunk_documents.append(
+                        ChunkModel(
+                            file_id=str(file_doc["_id"]),
+                            user_id=user_id,
+                            chunk_index=chunk_index,
+                            text=chunk_text,
+                            metadata={"page": page_num},
+                        ).to_dict()
+                    )
+                    chunk_index += 1
+        else:
+            chunks = split_text_into_chunks(file_doc["extractedText"], chunk_size=800, overlap=150)
+            for chunk_text in chunks:
+                chunk_documents.append(
+                    ChunkModel(
+                        file_id=str(file_doc["_id"]),
+                        user_id=user_id,
+                        chunk_index=chunk_index,
+                        text=chunk_text,
+                        metadata={"page": None},
+                    ).to_dict()
+                )
+                chunk_index += 1
+
+        if not chunk_documents:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No text available for chunking",
             )
 
-        chunk_documents = [
-            ChunkModel(
-                file_id=str(file_doc["_id"]),
-                user_id=user_id,
-                chunk_index=index,
-                text=chunk_text,
-                metadata={"page": None},
-            ).to_dict()
-            for index, chunk_text in enumerate(chunks)
-        ]
+        # Verification log
+        print(f"\nTotal chunks: {len(chunk_documents)}")
+        for index, chunk_doc in enumerate(chunk_documents[:5]):
+            print(f"Chunk {index + 1}: {chunk_doc['text'][:200]}")
 
         await chunks_collection.insert_many(chunk_documents)
 
@@ -292,6 +394,7 @@ class FileService:
             "fileId": str(file_doc["_id"]),
             "chunkCount": len(chunk_documents),
         }
+
 
     @staticmethod
     async def embed_file(user_id: str, file_id: str) -> dict:
@@ -455,7 +558,8 @@ class FileService:
                 detail="Invalid file ID format",
             )
 
-        file_doc = await files_collection.find_one({"_id": obj_id, "userId": user_id})
+        user_obj_id = ObjectId(user_id) if ObjectId.is_valid(user_id) else user_id
+        file_doc = await files_collection.find_one({"_id": obj_id, "userId": {"$in": [user_id, user_obj_id]}})
         if not file_doc:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

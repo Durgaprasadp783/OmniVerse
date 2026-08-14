@@ -16,11 +16,23 @@ class FileResponseSchema(BaseModel):
     path: str
     extractedText: Optional[str] = ""
     pageCount: Optional[int] = 0
+    wordCount: Optional[int] = 0
     processed: Optional[bool] = False
     createdAt: Optional[datetime] = None
     updatedAt: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class RenameFileRequestSchema(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200, description="New document title")
+
+
+class AdvancedSearchRequestSchema(BaseModel):
+    query: str = Field(..., min_length=1, max_length=5000)
+    fileIds: Optional[List[str]] = None
+    page: Optional[int] = None
+    topK: Optional[int] = 5
 
 
 class FileUploadSuccessSchema(BaseModel):
