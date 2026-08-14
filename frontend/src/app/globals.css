@@ -2,8 +2,12 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  --background: #030c0a;
+  --foreground: #f0fdfa;
+  --card-bg: #071916;
+  --teal-primary: #14b8a6;
+  --teal-dark: #0d9488;
+  --teal-glow: rgba(20, 184, 166, 0.35);
 }
 
 body {
@@ -17,35 +21,34 @@ h1, h2, h3, h4, h5, h6 {
   font-family: 'Outfit', 'Inter', sans-serif;
 }
 
-/* Custom Scrollbars */
+/* Cyber Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: #04100e;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #11423b;
   border-radius: 9999px;
 }
 
-.dark ::-webkit-scrollbar-thumb,
-.bg-slate-950 ::-webkit-scrollbar-thumb {
-  background: #334155;
-}
-
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #14b8a6;
 }
 
-/* Smooth Glows */
-.glow-purple {
-  box-shadow: 0 0 25px -5px rgba(99, 102, 241, 0.4);
+/* Glow Effects */
+.glow-teal {
+  box-shadow: 0 0 25px -5px rgba(20, 184, 166, 0.4);
 }
 
-.glow-blue {
-  box-shadow: 0 0 25px -5px rgba(59, 130, 246, 0.4);
+.glow-teal-sm {
+  box-shadow: 0 0 12px -2px rgba(20, 184, 166, 0.3);
+}
+
+.border-teal-glass {
+  border-color: rgba(20, 184, 166, 0.2);
 }
