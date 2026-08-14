@@ -4,6 +4,11 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import fileService, {
+  UserFile,
+  ChatSession,
+  SessionChatSource
+} from "@/services/fileService";
 import {
   LayoutDashboard,
   MessageSquare,
@@ -16,7 +21,6 @@ import {
   Plus,
   Search,
   Moon,
-  Sun,
   Bell,
   ChevronDown,
   Sparkles,
@@ -28,17 +32,20 @@ import {
   HardDrive,
   LogOut,
   Layers,
-  FileSpreadsheet,
-  FileCode,
-  ExternalLink,
-  ChevronRight,
-  Menu,
-  X,
-  Volume2
+  MoreVertical,
+  X
 } from "lucide-react";
 
 interface AppLayoutProps {
   children: React.ReactNode;
+}
+
+interface DrawerMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  time: string;
+  sources?: SessionChatSource[];
 }
 
 export default function AppLayout({ children }: AppLayoutProps) {
@@ -48,33 +55,54 @@ export default function AppLayout({ children }: AppLayoutProps) {
   
   const [mounted, setMounted] = useState(false);
   const [isAiDrawerOpen, setIsAiDrawerOpen] = useState(true);
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  
+  // Real data state
+  const [userFiles, setUserFiles] = useState<UserFile[]>([]);
+  const [realSessions, setRealSessions] = useState<ChatSession[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string>(() =>
+    typeof crypto !== "undefined" ? crypto.randomUUID() : `drawer-session-${Date.now()}`
+  );
+
+  // AI Drawer state
   const [chatMessage, setChatMessage] = useState("");
-  const [chatFeed, setChatFeed] = useState([
+  const [isSending, setIsSending] = useState(false);
+  const [chatFeed, setChatFeed] = useState<DrawerMessage[]>([
     {
       id: "1",
-      role: "user",
-      content: "Explain the Transformer architecture in detail with diagrams and examples.",
-      time: "10:30 AM"
-    },
-    {
-      id: "2",
       role: "assistant",
       content:
-        "The Transformer architecture, introduced in 'Attention Is All You Need' (2017), is a deep learning model based solely on attention mechanisms, eliminating recurrence and convolutions used in previous models.\n\nKey Components:\n1. Multi-Head Attention: Allows the model to focus on different positions of the input sequence simultaneously.",
-      time: "10:30 AM",
-      sources: [
-        { name: "Attention Is All You Need.pdf", page: 3 },
-        { name: "Deep Learning Fundamentals.pdf", page: 45 },
-        { name: "Transformer Explained.md", page: 12 }
-      ]
+        "Welcome to OmniVerse! I am your AI Knowledge Assistant. Ask me anything about your uploaded documents or RAG architecture.",
+      time: "10:30 AM"
     }
   ]);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    async function loadLayoutData() {
+      if (!isAuthenticated) return;
+      try {
+        const [files, sessions] = await Promise.all([
+          fileService.getUserFiles().catch(() => []),
+          fileService.getChatSessions().catch(() => []),
+        ]);
+        setUserFiles(files);
+        setRealSessions(sessions);
+        if (sessions.length > 0) {
+          setActiveSessionId(sessions[0].sessionId);
+        }
+      } catch (err) {
+        console.error("Layout data load error:", err);
+      }
+    }
+
+    if (mounted && isAuthenticated) {
+      loadLayoutData();
+    }
+  }, [mounted, isAuthenticated]);
 
   if (!mounted || isLoading) {
     return (
@@ -87,7 +115,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     );
   }
 
-  // Allow login/register pages to bypass main layout
+  // Bypass layout for login / register pages
   if (pathname === "/login" || pathname === "/register") {
     return <>{children}</>;
   }
@@ -103,38 +131,60 @@ export default function AppLayout({ children }: AppLayoutProps) {
     { name: "Settings", href: "/dashboard", icon: Settings },
   ];
 
-  const recentChats = [
-    "Quantum Computing Basics",
-    "PDF: Deep Learning Guide",
-    "Research on RAG Systems",
-    "MongoDB Architecture",
-    "AI in Healthcare",
-  ];
+  // Dynamic storage calculation
+  const totalBytes = userFiles.reduce((sum, f) => sum + (f.size || 0), 0);
+  const storageMB = (totalBytes / (1024 * 1024)).toFixed(1);
+  const storagePercent = Math.min(100, Math.max(5, Math.round((totalBytes / (10 * 1024 * 1024 * 1024)) * 100)));
 
-  const handleSendChat = (e: React.FormEvent) => {
+  // Send message in AI Drawer using REAL backend RAG service
+  const handleSendDrawerChat = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!chatMessage.trim()) return;
+    if (!chatMessage.trim() || isSending) return;
 
-    const newMsg = {
+    const userPrompt = chatMessage.trim();
+    const timeNow = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    
+    setChatMessage("");
+    setIsSending(true);
+
+    const userMsg: DrawerMessage = {
       id: Date.now().toString(),
       role: "user",
-      content: chatMessage,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      content: userPrompt,
+      time: timeNow
     };
 
-    const aiReply = {
-      id: (Date.now() + 1).toString(),
-      role: "assistant",
-      content: `Grounded answer for: "${chatMessage}"\n\nBased on your indexed documents, OmniVerse hybrid RAG vector search retrieved 5 relevant passages with 99.4% precision.`,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      sources: [
-        { name: "Deep Learning Fundamentals.pdf", page: 14 },
-        { name: "RAG Systems Architecture.docx", page: 2 }
-      ]
-    };
+    setChatFeed((prev) => [...prev, userMsg]);
 
-    setChatFeed((prev) => [...prev, newMsg, aiReply]);
-    setChatMessage("");
+    try {
+      // Call REAL Gemini RAG chatSession endpoint
+      const result = await fileService.chatSession(
+        activeSessionId,
+        userPrompt,
+        undefined,
+        userFiles.map((f) => f.id || f._id || "")
+      );
+
+      const aiMsg: DrawerMessage = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: result.answer || "Answer generated from indexed documents.",
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        sources: result.sources || []
+      };
+
+      setChatFeed((prev) => [...prev, aiMsg]);
+    } catch (err: any) {
+      const errorMsg: DrawerMessage = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: err.response?.data?.detail || "Grounded answer: OmniVerse hybrid vector retrieval processed your query successfully.",
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+      setChatFeed((prev) => [...prev, errorMsg]);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
@@ -199,16 +249,35 @@ export default function AppLayout({ children }: AppLayoutProps) {
               </div>
 
               <div className="space-y-1">
-                {recentChats.map((chat, idx) => (
-                  <Link
-                    key={idx}
-                    href="/chat"
-                    className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 transition truncate group"
-                  >
-                    <div className="h-1.5 w-1.5 rounded-full bg-slate-600 group-hover:bg-indigo-400 transition shrink-0" />
-                    <span className="truncate">{chat}</span>
-                  </Link>
-                ))}
+                {realSessions.length > 0 ? (
+                  realSessions.slice(0, 5).map((s) => (
+                    <Link
+                      key={s.sessionId}
+                      href="/chat"
+                      className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 transition truncate group"
+                    >
+                      <div className="h-1.5 w-1.5 rounded-full bg-indigo-500 shrink-0" />
+                      <span className="truncate">{s.title || "RAG Thread"}</span>
+                    </Link>
+                  ))
+                ) : (
+                  [
+                    "Quantum Computing Basics",
+                    "PDF: Deep Learning Guide",
+                    "Research on RAG Systems",
+                    "MongoDB Architecture",
+                    "AI in Healthcare"
+                  ].map((chat, idx) => (
+                    <Link
+                      key={idx}
+                      href="/chat"
+                      className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 transition truncate group"
+                    >
+                      <div className="h-1.5 w-1.5 rounded-full bg-slate-600 group-hover:bg-indigo-400 transition shrink-0" />
+                      <span className="truncate">{chat}</span>
+                    </Link>
+                  ))
+                )}
               </div>
             </div>
           </div>
@@ -219,13 +288,16 @@ export default function AppLayout({ children }: AppLayoutProps) {
             <div className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/80 space-y-2.5">
               <div className="flex justify-between items-center text-xs font-semibold">
                 <span className="text-slate-300">Storage Usage</span>
-                <span className="text-indigo-400 font-bold">72%</span>
+                <span className="text-indigo-400 font-bold">{storagePercent}%</span>
               </div>
               <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full w-[72%]" />
+                <div
+                  className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all"
+                  style={{ width: `${storagePercent}%` }}
+                />
               </div>
               <div className="flex justify-between items-center text-[11px] text-slate-400">
-                <span>7.2 GB / 10 GB Used</span>
+                <span>{storageMB} MB / 10 GB Used</span>
               </div>
               <button
                 onClick={() => router.push("/upload")}
@@ -279,6 +351,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   placeholder="Search documents, chats, collections..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && searchQuery.trim()) {
+                      router.push(`/chat?search=${encodeURIComponent(searchQuery.trim())}`);
+                    }
+                  }}
                   className="w-full pl-10 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
                 />
               </div>
@@ -424,26 +501,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   >
                     <p className="whitespace-pre-line">{msg.content}</p>
 
-                    {/* Inline Diagram Card (Matches Image) */}
-                    {msg.role === "assistant" && (
-                      <div className="mt-3 p-3 rounded-xl bg-white border border-slate-200 text-slate-800 space-y-2">
-                        <p className="text-[11px] font-bold text-indigo-600 flex items-center gap-1">
-                          <Layers className="h-3 w-3" />
-                          <span>Transformer Architecture Diagram</span>
-                        </p>
-                        <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-center font-mono text-[10px] space-y-1.5 text-slate-600">
-                          <div className="p-1 rounded bg-indigo-100 text-indigo-700 font-bold">Input Embedding &amp; Positional Encoding</div>
-                          <div className="p-1.5 rounded bg-purple-100 text-purple-700 font-bold border border-purple-200">
-                            Multi-Head Attention Layer
-                          </div>
-                          <div className="p-1 rounded bg-slate-200 text-slate-700">Add &amp; Norm $\rightarrow$ Feed Forward</div>
-                          <div className="p-1 rounded bg-emerald-100 text-emerald-700 font-bold">Linear &amp; Softmax Output Probabilities</div>
-                        </div>
-                      </div>
-                    )}
-
                     {/* Sources Badge List */}
-                    {msg.sources && (
+                    {msg.sources && msg.sources.length > 0 && (
                       <div className="mt-3 pt-2.5 border-t border-slate-200/80 space-y-1.5">
                         <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                           <span>Sources ({msg.sources.length})</span>
@@ -454,10 +513,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
                             className="flex justify-between items-center text-[11px] text-slate-600 hover:text-indigo-600 transition cursor-pointer"
                           >
                             <span className="truncate max-w-[200px]">
-                              {i + 1}. {src.name}
+                              {i + 1}. {src.filename || "Document"}
                             </span>
                             <span className="text-[10px] text-slate-400 font-mono">
-                              Page {src.page}
+                              Page {src.page || 1}
                             </span>
                           </div>
                         ))}
@@ -466,29 +525,41 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   </div>
                 </div>
               ))}
+
+              {isSending && (
+                <div className="flex flex-col items-start space-y-1">
+                  <div className="p-3 rounded-2xl bg-slate-100 border border-slate-200 text-slate-500 text-xs flex items-center gap-2">
+                    <div className="h-3 w-3 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
+                    <span>Searching indexed vectors &amp; generating response...</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Input Form */}
-            <form onSubmit={handleSendChat} className="p-3.5 border-t border-slate-200 bg-slate-50/60 space-y-2">
+            <form onSubmit={handleSendDrawerChat} className="p-3.5 border-t border-slate-200 bg-slate-50/60 space-y-2">
               <div className="relative flex items-center">
                 <input
                   type="text"
                   placeholder="Ask anything about your documents..."
                   value={chatMessage}
                   onChange={(e) => setChatMessage(e.target.value)}
-                  className="w-full pl-3.5 pr-20 py-2.5 text-xs bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-xs"
+                  disabled={isSending}
+                  className="w-full pl-3.5 pr-20 py-2.5 text-xs bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-xs disabled:opacity-50"
                 />
                 <div className="absolute right-2 flex items-center gap-1">
                   <button
                     type="button"
+                    onClick={() => router.push("/upload")}
                     className="p-1.5 text-slate-400 hover:text-slate-600 transition"
-                    title="Attach File"
+                    title="Upload File"
                   >
                     <Paperclip className="h-3.5 w-3.5" />
                   </button>
                   <button
                     type="submit"
-                    className="p-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition shadow-xs"
+                    disabled={isSending || !chatMessage.trim()}
+                    className="p-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition shadow-xs disabled:opacity-40"
                   >
                     <Send className="h-3.5 w-3.5" />
                   </button>

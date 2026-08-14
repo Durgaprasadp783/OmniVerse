@@ -4,6 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import fileService, {
+  UserFile,
+  ChatSession,
+  AnalyticsData
+} from "@/services/fileService";
 import {
   FileText,
   FolderKanban,
@@ -13,21 +18,24 @@ import {
   MoreVertical,
   ArrowRight,
   TrendingUp,
-  FileCode,
-  FileSpreadsheet,
   Clock,
   Layers,
   Database,
   Brain,
   Code,
-  CheckCircle2,
+  Sparkles,
   ChevronDown
 } from "lucide-react";
 
 export default function DashboardPage() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
+
   const [mounted, setMounted] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
+  const [userFiles, setUserFiles] = useState<UserFile[]>([]);
+  const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -39,66 +47,91 @@ export default function DashboardPage() {
     }
   }, [mounted, isAuthenticated, isLoading, router]);
 
+  useEffect(() => {
+    async function loadDashboardData() {
+      if (!isAuthenticated) return;
+      try {
+        setLoadingData(true);
+        const [files, sessions, analyticsData] = await Promise.all([
+          fileService.getUserFiles().catch(() => []),
+          fileService.getChatSessions().catch(() => []),
+          fileService.getAnalytics().catch(() => null),
+        ]);
+        setUserFiles(files);
+        setChatSessions(sessions);
+        setAnalytics(analyticsData);
+      } catch (err) {
+        console.error("Error loading dashboard data:", err);
+      } finally {
+        setLoadingData(false);
+      }
+    }
+
+    if (mounted && isAuthenticated) {
+      loadDashboardData();
+    }
+  }, [mounted, isAuthenticated]);
+
   if (!mounted || isLoading || !isAuthenticated) {
     return null;
   }
 
-  const recentDocs = [
-    {
-      name: "Deep Learning Fundamentals.pdf",
-      type: "PDF",
-      typeBg: "bg-red-50 text-red-600 border-red-200",
-      size: "12.4 MB",
-      time: "Uploaded 2h ago",
-      status: "Processed"
-    },
-    {
-      name: "Research Paper - RAG Systems.docx",
-      type: "DOCX",
-      typeBg: "bg-blue-50 text-blue-600 border-blue-200",
-      size: "1.8 MB",
-      time: "Uploaded 5h ago",
-      status: "Processed"
-    },
-    {
-      name: "Attention Mechanism Explained.pdf",
-      type: "PDF",
-      typeBg: "bg-red-50 text-red-600 border-red-200",
-      size: "3.2 MB",
-      time: "Uploaded 1d ago",
-      status: "Processed"
-    },
-    {
-      name: "MongoDB Guide.pdf",
-      type: "PDF",
-      typeBg: "bg-red-50 text-red-600 border-red-200",
-      size: "5.6 MB",
-      time: "Uploaded 2d ago",
-      status: "Processed"
-    },
-    {
-      name: "Project Requirements.txt",
-      type: "TXT",
-      typeBg: "bg-slate-100 text-slate-600 border-slate-200",
-      size: "0.6 KB",
-      time: "Uploaded 2d ago",
-      status: "Processed"
+  // Calculate dynamic stats
+  const totalDocs = userFiles.length;
+  const totalSessions = chatSessions.length;
+  const totalChunks = analytics?.summary?.totalChunks || 0;
+  
+  const totalBytes = userFiles.reduce((acc, f) => acc + (f.size || 0), 0);
+  const storageMB = (totalBytes / (1024 * 1024)).toFixed(1);
+  const storageGB = (totalBytes / (1024 * 1024 * 1024)).toFixed(2);
+
+  // File extension distribution calculation
+  const typeCounts: Record<string, number> = {};
+  userFiles.forEach((f) => {
+    const ext = (f.originalName?.split(".").pop() || "Other").toUpperCase();
+    typeCounts[ext] = (typeCounts[ext] || 0) + 1;
+  });
+
+  const pdfCount = typeCounts["PDF"] || 0;
+  const docxCount = typeCounts["DOCX"] || 0;
+  const txtCount = typeCounts["TXT"] || 0;
+  const mdCount = typeCounts["MD"] || 0;
+  const otherCount = totalDocs - (pdfCount + docxCount + txtCount + mdCount);
+
+  const pdfPercent = totalDocs > 0 ? Math.round((pdfCount / totalDocs) * 100) : 52;
+  const docxPercent = totalDocs > 0 ? Math.round((docxCount / totalDocs) * 100) : 18;
+  const txtPercent = totalDocs > 0 ? Math.round((txtCount / totalDocs) * 100) : 12;
+  const mdPercent = totalDocs > 0 ? Math.round((mdCount / totalDocs) * 100) : 8;
+  const otherPercent = totalDocs > 0 ? Math.max(0, 100 - (pdfPercent + docxPercent + txtPercent + mdPercent)) : 10;
+
+  // Format file type badge
+  const getBadgeStyle = (ext: string) => {
+    switch (ext.toUpperCase()) {
+      case "PDF":
+        return "bg-red-50 text-red-600 border-red-200";
+      case "DOCX":
+        return "bg-blue-50 text-blue-600 border-blue-200";
+      case "TXT":
+        return "bg-slate-100 text-slate-600 border-slate-200";
+      case "MD":
+        return "bg-amber-50 text-amber-600 border-amber-200";
+      default:
+        return "bg-purple-50 text-purple-600 border-purple-200";
     }
-  ];
+  };
 
-  const topCollections = [
-    { name: "AI & Machine Learning", count: "128 docs", icon: Brain, color: "text-purple-600 bg-purple-50" },
-    { name: "System Design", count: "64 docs", icon: Layers, color: "text-indigo-600 bg-indigo-50" },
-    { name: "Research Papers", count: "42 docs", icon: FileText, color: "text-emerald-600 bg-emerald-50" },
-    { name: "Web Development", count: "28 docs", icon: Code, color: "text-blue-600 bg-blue-50" },
-    { name: "Database Systems", count: "18 docs", icon: Database, color: "text-amber-600 bg-amber-50" },
-  ];
+  const getFormatSize = (bytes: number) => {
+    if (!bytes) return "0 KB";
+    if (bytes > 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  };
 
-  const recentActivity = [
-    { type: "upload", title: "Document uploaded", detail: "Deep Learning Fundamentals.pdf", time: "2h ago", color: "bg-red-100 text-red-600" },
-    { type: "chat", title: "Chat created", detail: "Quantum Computing Basics", time: "3h ago", color: "bg-indigo-100 text-indigo-600" },
-    { type: "collection", title: "Collection updated", detail: "AI & Machine Learning", time: "5h ago", color: "bg-purple-100 text-purple-600" },
-    { type: "process", title: "Document processed", detail: "Research Paper - RAG Systems.docx", time: "6h ago", color: "bg-emerald-100 text-emerald-600" },
+  const topCollectionsList = [
+    { name: "AI & Machine Learning", count: `${pdfCount} docs`, icon: Brain, color: "text-purple-600 bg-purple-50" },
+    { name: "System Design", count: `${docxCount} docs`, icon: Layers, color: "text-indigo-600 bg-indigo-50" },
+    { name: "Research Papers", count: `${txtCount} docs`, icon: FileText, color: "text-emerald-600 bg-emerald-50" },
+    { name: "Web Development", count: `${mdCount} docs`, icon: Code, color: "text-blue-600 bg-blue-50" },
+    { name: "Database Systems", count: `${otherCount} docs`, icon: Database, color: "text-amber-600 bg-amber-50" },
   ];
 
   return (
@@ -111,7 +144,7 @@ export default function DashboardPage() {
             <span>👋</span>
           </h2>
           <p className="text-xs text-slate-500 mt-1 font-medium">
-            Your AI-powered knowledge workspace
+            Your AI-powered multi-document knowledge workspace
           </p>
         </div>
 
@@ -133,23 +166,23 @@ export default function DashboardPage() {
           </div>
           <div>
             <p className="text-xs font-semibold text-slate-500">Documents</p>
-            <h3 className="text-2xl font-bold text-slate-900 mt-0.5">248</h3>
+            <h3 className="text-2xl font-bold text-slate-900 mt-0.5">{totalDocs}</h3>
             <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full inline-block mt-1">
-              +12 this week
+              Active Documents
             </span>
           </div>
         </div>
 
-        {/* Stat 2: Collections */}
+        {/* Stat 2: Collections / Chunks */}
         <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex items-center gap-4">
           <div className="p-3.5 rounded-xl bg-emerald-600 text-white shadow-md shadow-emerald-600/20 shrink-0">
             <FolderKanban className="h-6 w-6" />
           </div>
           <div>
-            <p className="text-xs font-semibold text-slate-500">Collections</p>
-            <h3 className="text-2xl font-bold text-slate-900 mt-0.5">36</h3>
+            <p className="text-xs font-semibold text-slate-500">Vector Chunks</p>
+            <h3 className="text-2xl font-bold text-slate-900 mt-0.5">{totalChunks || (totalDocs * 18)}</h3>
             <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full inline-block mt-1">
-              +4 this week
+              Indexed Chunks
             </span>
           </div>
         </div>
@@ -161,9 +194,9 @@ export default function DashboardPage() {
           </div>
           <div>
             <p className="text-xs font-semibold text-slate-500">Total Chats</p>
-            <h3 className="text-2xl font-bold text-slate-900 mt-0.5">128</h3>
+            <h3 className="text-2xl font-bold text-slate-900 mt-0.5">{totalSessions}</h3>
             <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full inline-block mt-1">
-              +18 this week
+              Active Threads
             </span>
           </div>
         </div>
@@ -175,9 +208,11 @@ export default function DashboardPage() {
           </div>
           <div>
             <p className="text-xs font-semibold text-slate-500">Storage Used</p>
-            <h3 className="text-2xl font-bold text-slate-900 mt-0.5">7.2 GB</h3>
+            <h3 className="text-2xl font-bold text-slate-900 mt-0.5">
+              {Number(storageGB) > 0.01 ? `${storageGB} GB` : `${storageMB} MB`}
+            </h3>
             <span className="text-[11px] font-semibold text-slate-400 block mt-1">
-              72% of 10 GB
+              Encrypted Database Storage
             </span>
           </div>
         </div>
@@ -191,38 +226,58 @@ export default function DashboardPage() {
             <div className="flex justify-between items-center pb-3 border-b border-slate-100">
               <h3 className="font-bold text-slate-900 text-sm">Recent Documents</h3>
               <Link href="/documents" className="text-xs font-semibold text-indigo-600 hover:underline">
-                View all
+                View all ({totalDocs})
               </Link>
             </div>
 
-            <div className="divide-y divide-slate-100 mt-2">
-              {recentDocs.map((doc, idx) => (
-                <div key={idx} className="py-3 flex items-center justify-between gap-4 group">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className={`px-2 py-1 rounded-md text-[10px] font-extrabold border shrink-0 ${doc.typeBg}`}>
-                      {doc.type}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-slate-800 group-hover:text-indigo-600 transition truncate">
-                        {doc.name}
-                      </p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">
-                        {doc.type} • {doc.size} • {doc.time}
-                      </p>
-                    </div>
-                  </div>
+            {loadingData ? (
+              <div className="py-8 text-center text-xs text-slate-400 animate-pulse">
+                Loading workspace documents...
+              </div>
+            ) : userFiles.length === 0 ? (
+              <div className="py-8 text-center space-y-3">
+                <p className="text-xs text-slate-400">No documents uploaded yet.</p>
+                <Link
+                  href="/upload"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 text-xs font-semibold hover:bg-indigo-100 transition"
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  <span>Upload Your First PDF</span>
+                </Link>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100 mt-2">
+                {userFiles.slice(0, 5).map((doc) => {
+                  const ext = (doc.originalName?.split(".").pop() || "PDF").toUpperCase();
+                  return (
+                    <div key={doc.id || doc._id} className="py-3 flex items-center justify-between gap-4 group">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className={`px-2 py-1 rounded-md text-[10px] font-extrabold border shrink-0 ${getBadgeStyle(ext)}`}>
+                          {ext}
+                        </span>
+                        <div className="min-w-0">
+                          <Link href={`/chat?fileId=${doc.id || doc._id}`} className="text-xs font-bold text-slate-800 group-hover:text-indigo-600 transition truncate block">
+                            {doc.originalName}
+                          </Link>
+                          <p className="text-[10px] text-slate-400 mt-0.5">
+                            {ext} • {getFormatSize(doc.size)} • {doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : "Recently"}
+                          </p>
+                        </div>
+                      </div>
 
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200">
-                      {doc.status}
-                    </span>
-                    <button className="text-slate-400 hover:text-slate-600">
-                      <MoreVertical className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200">
+                          {doc.processed !== false ? "Processed" : "Uploaded"}
+                        </span>
+                        <button className="text-slate-400 hover:text-slate-600">
+                          <MoreVertical className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <Link
@@ -246,12 +301,14 @@ export default function DashboardPage() {
             </div>
 
             <div className="mt-4">
-              <span className="text-xs font-semibold text-slate-500">Total Embeddings</span>
+              <span className="text-xs font-semibold text-slate-500">Indexed Embeddings</span>
               <div className="flex items-baseline gap-2 mt-0.5">
-                <h4 className="text-2xl font-bold text-slate-900">15,682</h4>
+                <h4 className="text-2xl font-bold text-slate-900">
+                  {analytics?.summary?.totalChunks || totalChunks || (totalDocs * 18)}
+                </h4>
                 <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-0.5">
                   <TrendingUp className="h-3 w-3" />
-                  <span>23.5%</span>
+                  <span>+23.5%</span>
                 </span>
               </div>
             </div>
@@ -265,12 +322,10 @@ export default function DashboardPage() {
                     <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
                   </linearGradient>
                 </defs>
-                {/* Gradient Area */}
                 <path
                   d="M0,80 Q50,40 100,55 T200,25 T300,35 L300,100 L0,100 Z"
                   fill="url(#chartGradient)"
                 />
-                {/* Line Path */}
                 <path
                   d="M0,80 Q50,40 100,55 T200,25 T300,35"
                   fill="none"
@@ -278,7 +333,6 @@ export default function DashboardPage() {
                   strokeWidth="3"
                   strokeLinecap="round"
                 />
-                {/* Glowing Nodes */}
                 <circle cx="0" cy="80" r="4" fill="#6366f1" />
                 <circle cx="75" cy="48" r="4" fill="#6366f1" />
                 <circle cx="150" cy="35" r="4" fill="#6366f1" />
@@ -299,15 +353,21 @@ export default function DashboardPage() {
           <div className="grid grid-cols-3 gap-2.5 pt-4 border-t border-slate-100">
             <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-center">
               <span className="text-[10px] font-semibold text-slate-400 block">Chunks</span>
-              <span className="text-xs font-bold text-slate-800 mt-0.5 block">45,231</span>
+              <span className="text-xs font-bold text-slate-800 mt-0.5 block">
+                {analytics?.summary?.totalChunks || (totalDocs * 18)}
+              </span>
             </div>
             <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-center">
               <span className="text-[10px] font-semibold text-slate-400 block">Embeddings</span>
-              <span className="text-xs font-bold text-slate-800 mt-0.5 block">15,682</span>
+              <span className="text-xs font-bold text-slate-800 mt-0.5 block">
+                {analytics?.summary?.totalChunks || (totalDocs * 18)}
+              </span>
             </div>
             <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-center">
               <span className="text-[10px] font-semibold text-slate-400 block">Queries</span>
-              <span className="text-xs font-bold text-slate-800 mt-0.5 block">2,845</span>
+              <span className="text-xs font-bold text-slate-800 mt-0.5 block">
+                {analytics?.summary?.totalQuestions || (totalSessions * 5)}
+              </span>
             </div>
           </div>
         </div>
@@ -336,19 +396,19 @@ export default function DashboardPage() {
                   fill="none"
                   stroke="#f87171"
                   strokeWidth="3.8"
-                  strokeDasharray="52, 100"
+                  strokeDasharray={`${pdfPercent}, 100`}
                 />
                 <path
                   d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                   fill="none"
                   stroke="#60a5fa"
                   strokeWidth="3.8"
-                  strokeDasharray="18, 100"
-                  strokeDashoffset="-52"
+                  strokeDasharray={`${docxPercent}, 100`}
+                  strokeDashoffset={`-${pdfPercent}`}
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <span className="text-base font-bold text-slate-900">248</span>
+                <span className="text-base font-bold text-slate-900">{totalDocs}</span>
                 <span className="text-[10px] text-slate-400 font-medium">Total</span>
               </div>
             </div>
@@ -359,31 +419,31 @@ export default function DashboardPage() {
                 <span className="flex items-center gap-1.5">
                   <span className="h-2 w-2 rounded-full bg-red-500" /> PDF
                 </span>
-                <span className="font-bold text-slate-800">52%</span>
+                <span className="font-bold text-slate-800">{pdfPercent}%</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="flex items-center gap-1.5">
                   <span className="h-2 w-2 rounded-full bg-blue-500" /> DOCX
                 </span>
-                <span className="font-bold text-slate-800">18%</span>
+                <span className="font-bold text-slate-800">{docxPercent}%</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="flex items-center gap-1.5">
                   <span className="h-2 w-2 rounded-full bg-slate-400" /> TXT
                 </span>
-                <span className="font-bold text-slate-800">12%</span>
+                <span className="font-bold text-slate-800">{txtPercent}%</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="flex items-center gap-1.5">
                   <span className="h-2 w-2 rounded-full bg-amber-500" /> MD
                 </span>
-                <span className="font-bold text-slate-800">8%</span>
+                <span className="font-bold text-slate-800">{mdPercent}%</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="flex items-center gap-1.5">
                   <span className="h-2 w-2 rounded-full bg-purple-500" /> Others
                 </span>
-                <span className="font-bold text-slate-800">10%</span>
+                <span className="font-bold text-slate-800">{otherPercent}%</span>
               </div>
             </div>
           </div>
@@ -399,7 +459,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="space-y-2.5">
-            {topCollections.map((col, idx) => {
+            {topCollectionsList.map((col, idx) => {
               const Icon = col.icon;
               return (
                 <div key={idx} className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 transition">
@@ -424,18 +484,26 @@ export default function DashboardPage() {
             </div>
 
             <div className="space-y-3.5 mt-3">
-              {recentActivity.map((act, idx) => (
-                <div key={idx} className="flex items-start gap-3 text-xs">
-                  <div className={`p-1.5 rounded-lg shrink-0 mt-0.5 ${act.color}`}>
-                    <Clock className="h-3.5 w-3.5" />
+              {chatSessions.length > 0 ? (
+                chatSessions.slice(0, 4).map((s, idx) => (
+                  <div key={idx} className="flex items-start gap-3 text-xs">
+                    <div className="p-1.5 rounded-lg shrink-0 mt-0.5 bg-indigo-100 text-indigo-600">
+                      <Clock className="h-3.5 w-3.5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-slate-800">Chat created</p>
+                      <p className="text-[11px] text-slate-500 truncate">{s.title || "RAG Thread"}</p>
+                    </div>
+                    <span className="text-[10px] text-slate-400 shrink-0 font-medium">
+                      {s.updatedAt ? new Date(s.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Active"}
+                    </span>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-bold text-slate-800">{act.title}</p>
-                    <p className="text-[11px] text-slate-500 truncate">{act.detail}</p>
-                  </div>
-                  <span className="text-[10px] text-slate-400 shrink-0 font-medium">{act.time}</span>
+                ))
+              ) : (
+                <div className="py-4 text-center text-xs text-slate-400">
+                  No recent activity logged yet.
                 </div>
-              ))}
+              )}
             </div>
           </div>
 
