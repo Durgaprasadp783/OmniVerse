@@ -17,31 +17,32 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [mode, setModeState] = useState<ThemeMode>("light");
   const [mounted, setMounted] = useState(false);
 
+  const applyTheme = (newMode: ThemeMode) => {
+    if (typeof window === "undefined") return;
+    const root = document.documentElement;
+    if (newMode === "dark") {
+      root.classList.add("dark");
+      root.setAttribute("data-mode", "dark");
+      root.style.colorScheme = "dark";
+    } else {
+      root.classList.remove("dark");
+      root.setAttribute("data-mode", "light");
+      root.style.colorScheme = "light";
+    }
+  };
+
   useEffect(() => {
     const saved = localStorage.getItem("omniverse_mode") as ThemeMode;
     const initialMode: ThemeMode = saved === "dark" ? "dark" : "light";
     setModeState(initialMode);
-    
-    if (initialMode === "dark") {
-      document.documentElement.classList.add("dark");
-      document.documentElement.setAttribute("data-mode", "dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-      document.documentElement.setAttribute("data-mode", "light");
-    }
+    applyTheme(initialMode);
     setMounted(true);
   }, []);
 
   const setMode = (newMode: ThemeMode) => {
     setModeState(newMode);
     localStorage.setItem("omniverse_mode", newMode);
-    if (newMode === "dark") {
-      document.documentElement.classList.add("dark");
-      document.documentElement.setAttribute("data-mode", "dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-      document.documentElement.setAttribute("data-mode", "light");
-    }
+    applyTheme(newMode);
   };
 
   const toggleDayNight = () => {

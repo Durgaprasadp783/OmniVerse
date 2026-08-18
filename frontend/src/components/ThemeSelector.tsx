@@ -20,13 +20,13 @@ export default function ThemeSelector({ variant = "floating" }: ThemeSelectorPro
     >
       {isDarkMode ? (
         <>
-          <Sun className="h-3.5 w-3.5 text-amber-400" />
-          <span>Day Mode</span>
+          <Moon className="h-3.5 w-3.5 text-purple-400" />
+          <span>Night Mode</span>
         </>
       ) : (
         <>
-          <Moon className="h-3.5 w-3.5 text-purple-600" />
-          <span>Night Mode</span>
+          <Sun className="h-3.5 w-3.5 text-amber-500" />
+          <span>Day Mode</span>
         </>
       )}
     </button>

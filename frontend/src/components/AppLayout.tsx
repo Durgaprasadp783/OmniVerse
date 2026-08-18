@@ -350,17 +350,17 @@ export default function AppLayout({ children }: AppLayoutProps) {
               <button
                 onClick={toggleDayNight}
                 className="px-3 py-1.5 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 shadow-2xs cursor-pointer bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:border-zinc-700 dark:text-zinc-200"
-                title={isDarkMode ? "Switch to Day Mode (Light)" : "Switch to Night Mode (Dark)"}
+                title={isDarkMode ? "Currently Night Mode. Click to switch to Day Mode" : "Currently Day Mode. Click to switch to Night Mode"}
               >
                 {isDarkMode ? (
                   <>
-                    <Sun className="h-3.5 w-3.5 text-amber-400 animate-spin-slow" />
-                    <span className="hidden sm:inline">Day</span>
+                    <Moon className="h-3.5 w-3.5 text-purple-400" />
+                    <span className="hidden sm:inline">Night Mode</span>
                   </>
                 ) : (
                   <>
-                    <Moon className="h-3.5 w-3.5 text-purple-600" />
-                    <span className="hidden sm:inline">Night</span>
+                    <Sun className="h-3.5 w-3.5 text-amber-500" />
+                    <span className="hidden sm:inline">Day Mode</span>
                   </>
                 )}
               </button>

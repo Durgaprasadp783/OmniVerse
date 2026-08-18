@@ -8,6 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
+import uvicorn
+import uuid
 
 from app.api.analytics import router as analytics_router
 from app.api.auth import router as auth_router
@@ -46,18 +48,21 @@ app = FastAPI(
     redoc_url="/redoc" if settings.ENVIRONMENT != "production" else None,
 )
 
-# ── CORS Middleware ───────────────────────────────────────────────────────────
-origins = settings.CORS_ORIGINS if isinstance(settings.CORS_ORIGINS, list) else [settings.CORS_ORIGINS]
+# ── Production CORS Middleware ────────────────────────────────────────────────
+cors_origins_env = os.getenv("CORS_ORIGINS")
+if cors_origins_env:
+    cors_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
+else:
+    cors_origins = settings.CORS_ORIGINS if isinstance(settings.CORS_ORIGINS, list) else [settings.CORS_ORIGINS]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
-
-import uuid
 
 # ── Request Logging & Security Headers Middleware ────────────────────────────
 @app.middleware("http")
@@ -166,17 +171,17 @@ async def root():
 @app.get("/health", tags=["Root"])
 @app.get("/api/health", tags=["Root"])
 async def health():
-    db_status = "healthy"
-    try:
-        current_db = get_db()
-        await current_db.command("ping")
-    except Exception as err:
-        db_status = f"unhealthy: {str(err)}"
-
     return {
-        "status": "healthy" if db_status == "healthy" else "degraded",
-        "environment": settings.ENVIRONMENT,
-        "database": db_status,
-        "geminiConfigured": bool(settings.GEMINI_API_KEY),
+        "status": "ok",
+        "service": "OmniVerse Backend"
     }
 
+
+# ── Production Entry Point ─────────────────────────────────────────────────────
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", settings.PORT))
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=port
+    )
