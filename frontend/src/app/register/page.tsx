@@ -23,9 +23,5 @@ export default function RegisterPage() {
     router.push("/login");
   }
 
-  return (
-    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-indigo-950 to-zinc-950">
-      <AuthForm mode="register" onSubmit={handleRegister} />
-    </main>
-  );
+  return <AuthForm mode="register" onSubmit={handleRegister} />;
 }

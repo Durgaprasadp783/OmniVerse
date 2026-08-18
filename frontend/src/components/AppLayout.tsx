@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { useTheme } from "@/context/ThemeContext";
 import fileService, {
   UserFile,
   ChatSession,
@@ -22,6 +23,7 @@ import {
   Plus,
   Search,
   Moon,
+  Sun,
   Bell,
   Sparkles,
   Paperclip,
@@ -54,78 +56,56 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const router = useRouter();
   const { user, isAuthenticated, isLoading, logout } = useAuth();
 
-  const [mounted, setMounted] = useState(false);
-  const [isAiDrawerOpen, setIsAiDrawerOpen] = useState(true);
+  // Day / Night Theme State from ThemeContext
+  const { isDarkMode, toggleDayNight } = useTheme();
+
+  // Active state & Drawer
+  const [isAiDrawerOpen, setIsAiDrawerOpen] = useState(false);
   const [drawerTab, setDrawerTab] = useState<"assistant" | "sources">("assistant");
   const [searchQuery, setSearchQuery] = useState("");
-
-  // Real data states
-  const [userFiles, setUserFiles] = useState<UserFile[]>([]);
-  const [realSessions, setRealSessions] = useState<ChatSession[]>([]);
-  const [activeSessionId] = useState<string>(() =>
-    typeof crypto !== "undefined" ? crypto.randomUUID() : `drawer-${Date.now()}`
-  );
-
-  // Drawer Chat State
   const [chatMessage, setChatMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
+
+  // Dynamic files & session list for sidebar
+  const [userFiles, setUserFiles] = useState<UserFile[]>([]);
+  const [realSessions, setRealSessions] = useState<ChatSession[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string>("default-session");
+
+  // AI Drawer chat history
   const [chatFeed, setChatFeed] = useState<DrawerMessage[]>([
     {
-      id: "1",
-      role: "user",
-      content: "Explain the Transformer architecture in simple terms.",
-      time: "10:30 AM"
-    },
-    {
-      id: "2",
+      id: "welcome-msg",
       role: "assistant",
-      content:
-        "The Transformer architecture is a deep learning model introduced in 'Attention Is All You Need' (2017). It relies on self-attention mechanisms instead of recurrence.\n\nKey Components:\n• Multi-Head Attention\n• Positional Encoding\n• Feed Forward Network\n• Add & Norm and Residual Connections",
-      time: "10:30 AM",
-      sources: [
-        { source: 1, filename: "Attention Is All You Need.pdf", page: 3, fileId: "1", chunkIndex: 0, similarity: 0.92 },
-        { source: 2, filename: "Transformers Architecture.md", page: 8, fileId: "2", chunkIndex: 1, similarity: 0.87 },
-        { source: 3, filename: "Deep Learning Guide.docx", page: 45, fileId: "3", chunkIndex: 2, similarity: 0.76 }
-      ]
+      content: "Hello! I am your OmniVerse AI copilot. Ask me anything about your uploaded documents or study materials.",
+      time: "Just now",
+      sources: []
     }
   ]);
 
+  // Load real user files & chat sessions
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    if (!isAuthenticated) return;
 
-  useEffect(() => {
-    async function loadLayoutData() {
-      if (!isAuthenticated) return;
+    async function fetchSidebarData() {
       try {
         const [files, sessions] = await Promise.all([
           fileService.getUserFiles().catch(() => []),
-          fileService.getChatSessions().catch(() => []),
+          fileService.getChatSessions().catch(() => [])
         ]);
         setUserFiles(files);
         setRealSessions(sessions);
+        if (sessions.length > 0 && sessions[0].sessionId) {
+          setActiveSessionId(sessions[0].sessionId);
+        }
       } catch (err) {
-        console.error("Layout data load error:", err);
+        console.error("Failed to load sidebar data", err);
       }
     }
 
-    if (mounted && isAuthenticated) {
-      loadLayoutData();
-    }
-  }, [mounted, isAuthenticated]);
+    fetchSidebarData();
+  }, [isAuthenticated, pathname]);
 
-  if (!mounted || isLoading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#030c0a] text-teal-100 p-4">
-        <div className="flex flex-col items-center gap-4 text-center">
-          <div className="h-12 w-12 rounded-full border-4 border-teal-500 border-t-transparent animate-spin"></div>
-          <p className="text-sm text-teal-400 font-medium">Loading Cyber-Teal Workspace...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Bypass layout for login / register pages
+  // If on login or register, render children directly
   if (pathname === "/login" || pathname === "/register") {
     return <>{children}</>;
   }
@@ -200,22 +180,22 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const activeAssistantMsg = [...chatFeed].reverse().find((m) => m.role === "assistant");
 
   return (
-    <div className="min-h-screen bg-[#030c0a] text-teal-50 flex flex-col font-sans">
+    <div className="min-h-screen bg-white dark:bg-zinc-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
       <div className="flex-1 flex overflow-hidden">
-        {/* ── 1. LEFT NAVIGATION SIDEBAR (Cyber Dark `#051512`) ──────────── */}
-        <aside className="hidden lg:flex w-64 bg-[#051512] border-r border-[#0d332e] flex-col justify-between shrink-0 text-teal-300">
+        {/* ── 1. LEFT NAVIGATION SIDEBAR ──────────── */}
+        <aside className="hidden lg:flex w-64 bg-white dark:bg-zinc-900 border-r border-slate-200 dark:border-zinc-800 flex-col justify-between shrink-0 text-slate-700 dark:text-slate-300 transition-colors">
           <div>
             {/* Logo */}
-            <div className="p-5 border-b border-[#0d332e] flex items-center justify-between">
+            <div className="p-5 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-teal-600 to-emerald-400 flex items-center justify-center text-slate-950 font-bold shadow-lg shadow-teal-500/20">
-                  <Sparkles className="h-5 w-5 text-slate-950" />
+                <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-purple-600 via-violet-600 to-indigo-600 flex items-center justify-center text-white font-bold shadow-md shadow-purple-500/20">
+                  <Sparkles className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-lg font-bold text-white tracking-tight leading-none">
+                  <h1 className="text-lg font-extrabold text-slate-900 dark:text-white tracking-tight leading-none">
                     OmniVerse
                   </h1>
-                  <span className="text-[10px] text-teal-400 tracking-wider uppercase font-semibold">
+                  <span className="text-[10px] text-purple-600 dark:text-purple-400 tracking-wider uppercase font-bold">
                     AI Document Platform
                   </span>
                 </div>
@@ -233,12 +213,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
                     href={item.href}
                     className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                       isActive
-                        ? "bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-md shadow-teal-600/30"
-                        : "text-teal-400/80 hover:text-white hover:bg-[#0c2a26]"
+                        ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-600/20"
+                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-purple-50/80 dark:hover:bg-zinc-800"
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-teal-400"}`} />
+                      <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-purple-600 dark:text-purple-400"}`} />
                       <span>{item.name}</span>
                     </div>
                     {isActive && <ChevronRight className="h-3.5 w-3.5 text-white" />}
@@ -250,12 +230,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
             {/* Recent Chats Section */}
             <div className="px-5 pt-3 pb-2">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-bold text-teal-500/80 uppercase tracking-wider">
+                <span className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">
                   RECENT CHATS
                 </span>
                 <Link
                   href="/chat"
-                  className="p-1 rounded-md text-teal-400 hover:text-white hover:bg-[#0d332e] transition"
+                  className="p-1 rounded-md text-purple-600 hover:text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-zinc-800 transition"
                   title="New Chat"
                 >
                   <Plus className="h-3.5 w-3.5" />
@@ -268,13 +248,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
                     <Link
                       key={s.sessionId}
                       href="/chat"
-                      className="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs text-teal-300/80 hover:text-white hover:bg-[#0c2a26] transition truncate group"
+                      className="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-purple-50/70 dark:hover:bg-zinc-800 transition truncate group"
                     >
                       <div className="flex items-center gap-2 truncate">
-                        <div className="h-1.5 w-1.5 rounded-full bg-teal-400 shrink-0" />
+                        <div className="h-1.5 w-1.5 rounded-full bg-purple-500 shrink-0" />
                         <span className="truncate">{s.title || "RAG Thread"}</span>
                       </div>
-                      <span className="text-[10px] text-teal-500/70 shrink-0">Active</span>
+                      <span className="text-[10px] text-purple-600 dark:text-purple-400 shrink-0 font-medium">Active</span>
                     </Link>
                   ))
                 ) : (
@@ -287,13 +267,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
                     <Link
                       key={idx}
                       href="/chat"
-                      className="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[11px] text-teal-300/70 hover:text-white hover:bg-[#0c2a26] transition group"
+                      className="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[11px] text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-purple-50/70 dark:hover:bg-zinc-800 transition group"
                     >
                       <div className="flex items-center gap-2 truncate">
-                        <div className="h-1.5 w-1.5 rounded-full bg-teal-600 group-hover:bg-teal-400 transition shrink-0" />
+                        <div className="h-1.5 w-1.5 rounded-full bg-purple-400 group-hover:bg-purple-600 transition shrink-0" />
                         <span className="truncate">{chat.title}</span>
                       </div>
-                      <span className="text-[9px] text-teal-500/60 shrink-0">{chat.time}</span>
+                      <span className="text-[9px] text-slate-400 shrink-0">{chat.time}</span>
                     </Link>
                   ))
                 )}
@@ -302,27 +282,27 @@ export default function AppLayout({ children }: AppLayoutProps) {
           </div>
 
           {/* Storage & User Profile Footer */}
-          <div className="p-4 border-t border-[#0d332e] space-y-4">
+          <div className="p-4 border-t border-slate-200 dark:border-zinc-800 space-y-4">
             {/* Storage Usage Card */}
-            <div className="p-3.5 rounded-xl bg-[#09211d] border border-[#0e3b34] space-y-2.5">
+            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200/80 dark:border-zinc-800 space-y-2.5">
               <div className="flex justify-between items-center text-xs font-bold">
-                <span className="text-teal-300/80">STORAGE USAGE</span>
-                <span className="text-teal-400 font-bold">{storagePercent}%</span>
+                <span className="text-slate-600 dark:text-slate-400">STORAGE USAGE</span>
+                <span className="text-purple-600 dark:text-purple-400 font-bold">{storagePercent}%</span>
               </div>
-              <div className="h-2 w-full bg-[#051512] rounded-full overflow-hidden border border-[#0d332e]">
+              <div className="h-2 w-full bg-slate-200 dark:bg-zinc-800 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-teal-500 to-emerald-400 rounded-full transition-all"
+                  className="h-full bg-gradient-to-r from-purple-600 via-violet-500 to-indigo-600 rounded-full transition-all"
                   style={{ width: `${storagePercent}%` }}
                 />
               </div>
-              <p className="text-[10px] text-teal-400/70">
+              <p className="text-[10px] text-slate-500 dark:text-zinc-400">
                 {storageGB} GB of 10 GB Used
               </p>
               <button
                 onClick={() => router.push("/upload")}
-                className="w-full py-1.5 rounded-lg bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 border border-teal-500/30 text-xs font-semibold transition flex items-center justify-center gap-1.5"
+                className="w-full py-1.5 rounded-lg bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60 text-xs font-semibold transition flex items-center justify-center gap-1.5"
               >
-                <Sparkles className="h-3 w-3 text-teal-400" />
+                <Sparkles className="h-3 w-3 text-purple-600 dark:text-purple-400" />
                 <span>Upgrade Plan</span>
               </button>
             </div>
@@ -330,14 +310,14 @@ export default function AppLayout({ children }: AppLayoutProps) {
             {/* User Profile Info */}
             <div className="flex items-center justify-between pt-1">
               <div className="flex items-center gap-2.5">
-                <div className="h-9 w-9 rounded-full bg-teal-500/20 border border-teal-500/40 text-teal-300 font-bold text-xs flex items-center justify-center">
+                <div className="h-9 w-9 rounded-full bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 font-bold text-xs flex items-center justify-center">
                   {user?.full_name?.substring(0, 2).toUpperCase() || "DP"}
                 </div>
                 <div className="truncate max-w-[110px]">
-                  <p className="text-xs font-bold text-white truncate">
+                  <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
                     {user?.full_name || "Durga Prasad"}
                   </p>
-                  <p className="text-[10px] text-teal-400/70 truncate">
+                  <p className="text-[10px] text-slate-500 dark:text-zinc-400 truncate">
                     {user?.email || "durga@example.com"}
                   </p>
                 </div>
@@ -346,65 +326,82 @@ export default function AppLayout({ children }: AppLayoutProps) {
           </div>
         </aside>
 
-        {/* ── 2. CENTER WORKSPACE ────────────────────────────────────────── */}
-        <div className="flex-1 flex flex-col min-w-0 bg-[#030c0a] overflow-y-auto">
+        {/* ── 2. CENTER WORKSPACE ──────────── */}
+        <div className="flex-1 flex flex-col min-w-0 bg-slate-50/70 dark:bg-zinc-950 overflow-y-auto transition-colors">
           {/* Top Header Bar */}
-          <header className="bg-[#051512] border-b border-[#0d332e] sticky top-0 z-20 px-6 py-3 flex items-center justify-between shadow-xs">
+          <header className="bg-white dark:bg-zinc-900 border-b border-slate-200 dark:border-zinc-800 sticky top-0 z-20 px-6 py-3 flex items-center justify-between shadow-xs transition-colors">
             {/* Search Input Bar */}
             <div className="flex items-center gap-4 flex-1 max-w-md">
               <div className="relative w-full">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-teal-500/70" />
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-zinc-500" />
                 <input
                   type="text"
                   placeholder="Search documents, chats, collections..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 text-xs bg-[#09211d] border border-[#0e3b34] rounded-xl text-teal-100 placeholder-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-500 transition"
+                  className="w-full pl-10 pr-4 py-2 text-xs bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 focus:bg-white dark:focus:bg-zinc-950 transition"
                 />
               </div>
             </div>
 
-            {/* Header Right Utilities & PROMINENT LOGOUT BUTTON */}
-            <div className="flex items-center gap-3">
-              <button className="p-2 rounded-xl text-teal-400 hover:bg-[#0c2a26] transition">
-                <Moon className="h-4 w-4" />
+            {/* Header Right Utilities */}
+            <div className="flex items-center gap-2.5 sm:gap-3">
+              {/* ☀️ / 🌙 DAY & NIGHT MODE TOGGLE BUTTON ON DASHBOARD TOP RIGHT */}
+              <button
+                onClick={toggleDayNight}
+                className="px-3 py-1.5 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 shadow-2xs cursor-pointer bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:border-zinc-700 dark:text-zinc-200"
+                title={isDarkMode ? "Switch to Day Mode (Light)" : "Switch to Night Mode (Dark)"}
+              >
+                {isDarkMode ? (
+                  <>
+                    <Sun className="h-3.5 w-3.5 text-amber-400 animate-spin-slow" />
+                    <span className="hidden sm:inline">Day</span>
+                  </>
+                ) : (
+                  <>
+                    <Moon className="h-3.5 w-3.5 text-purple-600" />
+                    <span className="hidden sm:inline">Night</span>
+                  </>
+                )}
               </button>
 
-              <button className="p-2 rounded-xl text-teal-400 hover:bg-[#0c2a26] transition relative">
+              <button className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 transition relative">
                 <Bell className="h-4 w-4" />
-                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-teal-400" />
+                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-purple-600" />
               </button>
 
               {/* User Profile Badge */}
-              <div className="flex items-center gap-2.5 pl-2 border-l border-[#0d332e]">
-                <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-teal-500 to-emerald-400 text-slate-950 font-extrabold text-xs flex items-center justify-center shadow-xs">
+              <div className="flex items-center gap-2.5 pl-2 border-l border-slate-200 dark:border-zinc-800">
+                <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 text-white font-extrabold text-xs flex items-center justify-center shadow-xs">
                   {user?.full_name?.substring(0, 2).toUpperCase() || "DP"}
                 </div>
                 <div className="hidden sm:block text-left">
-                  <p className="text-xs font-bold text-white leading-tight">
+                  <p className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
                     {user?.full_name || "Durga Prasad"}
                   </p>
-                  <p className="text-[10px] text-teal-400 font-medium">Free Plan</p>
+                  <p className="text-[10px] text-purple-600 dark:text-purple-400 font-semibold">Free Plan</p>
                 </div>
               </div>
 
-              {/* 🌟 LOGOUT BUTTON AT TOP RIGHT SIDE */}
-              <button
-                onClick={() => {
-                  logout();
-                  router.push("/login");
-                }}
-                className="px-3.5 py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
-                title="Log Out of OmniVerse"
-              >
-                <LogOut className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Logout</span>
-              </button>
+              {/* 🌟 LOGOUT BUTTON — ONLY ON DASHBOARD */}
+              {pathname === "/dashboard" && (
+                <button
+                  onClick={() => {
+                    logout();
+                    router.push("/login");
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/60 text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  title="Log Out of OmniVerse"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Logout</span>
+                </button>
+              )}
 
               {/* Drawer Toggle */}
               <button
                 onClick={() => setIsAiDrawerOpen(!isAiDrawerOpen)}
-                className="p-1.5 rounded-lg text-teal-400 hover:bg-[#0c2a26] transition"
+                className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 transition"
                 title="Toggle Omni AI Drawer"
               >
                 <X className={`h-4 w-4 transition-transform ${isAiDrawerOpen ? "" : "rotate-45"}`} />
@@ -418,33 +415,33 @@ export default function AppLayout({ children }: AppLayoutProps) {
           </main>
         </div>
 
-        {/* ── 4. RIGHT PANEL: OMNI AI ASSISTANT DRAWER ────────────────────── */}
+        {/* ── 3. RIGHT PANEL: OMNI AI ASSISTANT DRAWER ── */}
         {isAiDrawerOpen && (
-          <aside className="hidden xl:flex w-96 bg-[#051512] border-l border-[#0d332e] flex-col shrink-0 text-teal-100 shadow-2xl z-10">
+          <aside className="hidden xl:flex w-96 bg-white dark:bg-zinc-900 border-l border-slate-200 dark:border-zinc-800 flex-col shrink-0 text-slate-900 dark:text-slate-100 shadow-xl z-10">
             {/* Drawer Header */}
-            <div className="p-4 border-b border-[#0d332e] flex items-center justify-between bg-[#08201c]">
+            <div className="p-4 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between bg-slate-50 dark:bg-zinc-950">
               <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-teal-500 text-slate-950 font-bold">
+                <div className="p-1.5 rounded-lg bg-purple-600 text-white font-bold">
                   <Sparkles className="h-4 w-4" />
                 </div>
-                <h3 className="font-bold text-sm text-white">Omni AI Assistant</h3>
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white">Omni AI Assistant</h3>
               </div>
               <button
                 onClick={() => setIsAiDrawerOpen(false)}
-                className="p-1 text-teal-400 hover:text-white rounded-lg"
+                className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-lg"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             {/* Tabs: Assistant vs Sources */}
-            <div className="flex border-b border-[#0d332e] bg-[#061815] text-xs font-bold">
+            <div className="flex border-b border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950/50 text-xs font-bold">
               <button
                 onClick={() => setDrawerTab("assistant")}
                 className={`flex-1 py-2.5 text-center transition border-b-2 ${
                   drawerTab === "assistant"
-                    ? "border-teal-400 text-teal-300 bg-[#09231f]"
-                    : "border-transparent text-teal-500/70 hover:text-teal-300"
+                    ? "border-purple-600 text-purple-700 dark:text-purple-400 bg-white dark:bg-zinc-900"
+                    : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-white"
                 }`}
               >
                 Assistant
@@ -453,8 +450,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 onClick={() => setDrawerTab("sources")}
                 className={`flex-1 py-2.5 text-center transition border-b-2 ${
                   drawerTab === "sources"
-                    ? "border-teal-400 text-teal-300 bg-[#09231f]"
-                    : "border-transparent text-teal-500/70 hover:text-teal-300"
+                    ? "border-purple-600 text-purple-700 dark:text-purple-400 bg-white dark:bg-zinc-900"
+                    : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-white"
                 }`}
               >
                 Sources
@@ -472,29 +469,29 @@ export default function AppLayout({ children }: AppLayoutProps) {
                         msg.role === "user" ? "items-end" : "items-start"
                       }`}
                     >
-                      <span className="text-[10px] text-teal-500/70 font-medium px-1">
+                      <span className="text-[10px] text-slate-400 font-medium px-1">
                         {msg.time}
                       </span>
 
                       <div
                         className={`p-3.5 rounded-2xl max-w-[92%] leading-relaxed ${
                           msg.role === "user"
-                            ? "bg-teal-600 text-slate-950 font-medium rounded-br-none shadow-md shadow-teal-500/20"
-                            : "bg-[#09231f] text-teal-100 rounded-bl-none border border-[#0e3b34]"
+                            ? "bg-purple-600 text-white font-medium rounded-br-none shadow-sm shadow-purple-600/20"
+                            : "bg-slate-100 dark:bg-zinc-800 text-slate-900 dark:text-slate-100 rounded-bl-none border border-slate-200/80 dark:border-zinc-700/60"
                         }`}
                       >
                         <p className="whitespace-pre-line">{msg.content}</p>
 
                         {/* Action Icons */}
                         {msg.role === "assistant" && (
-                          <div className="flex items-center gap-3 pt-3 mt-2 border-t border-[#0e3b34] text-teal-400/80">
-                            <button className="hover:text-teal-200 transition">
+                          <div className="flex items-center gap-3 pt-3 mt-2 border-t border-slate-200 dark:border-zinc-700 text-slate-400">
+                            <button className="hover:text-slate-700 dark:hover:text-slate-200 transition">
                               <Copy className="h-3.5 w-3.5" />
                             </button>
-                            <button className="hover:text-teal-200 transition">
+                            <button className="hover:text-slate-700 dark:hover:text-slate-200 transition">
                               <ThumbsUp className="h-3.5 w-3.5" />
                             </button>
-                            <button className="hover:text-teal-200 transition">
+                            <button className="hover:text-slate-700 dark:hover:text-slate-200 transition">
                               <ThumbsDown className="h-3.5 w-3.5" />
                             </button>
                           </div>
@@ -505,25 +502,25 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
                   {/* Sources List Box */}
                   {activeAssistantMsg?.sources && activeAssistantMsg.sources.length > 0 && (
-                    <div className="mt-4 p-3.5 rounded-2xl bg-[#09231f] border border-[#0e3b34] space-y-2.5">
-                      <div className="flex justify-between items-center text-xs font-bold text-teal-300">
+                    <div className="mt-4 p-3.5 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 space-y-2.5">
+                      <div className="flex justify-between items-center text-xs font-bold text-slate-700 dark:text-slate-300">
                         <span>Sources ({activeAssistantMsg.sources.length})</span>
                       </div>
                       <div className="space-y-2">
                         {activeAssistantMsg.sources.map((src, i) => (
                           <div
                             key={i}
-                            className="p-2.5 rounded-xl bg-[#051512] border border-[#0d332e] flex items-center justify-between text-xs hover:border-teal-500/50 transition cursor-pointer"
+                            className="p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 flex items-center justify-between text-xs hover:border-purple-300 transition cursor-pointer shadow-2xs"
                           >
                             <div className="min-w-0 pr-2">
-                              <p className="font-semibold text-white truncate text-[11px]">
+                              <p className="font-semibold text-slate-900 dark:text-white truncate text-[11px]">
                                 📄 {src.filename}
                               </p>
-                              <p className="text-[10px] text-teal-400/70 mt-0.5">
+                              <p className="text-[10px] text-slate-500 dark:text-zinc-400 mt-0.5">
                                 Page {src.page || 1}
                               </p>
                             </div>
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-teal-500/20 text-teal-300 border border-teal-500/30 shrink-0">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 shrink-0">
                               {Math.round((src.similarity || 0.85) * 100)}%
                             </span>
                           </div>
@@ -531,7 +528,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                       </div>
                       <button
                         onClick={() => setDrawerTab("sources")}
-                        className="w-full text-center text-[11px] font-bold text-teal-400 hover:underline pt-1"
+                        className="w-full text-center text-[11px] font-bold text-purple-600 dark:text-purple-400 hover:underline pt-1"
                       >
                         View all sources →
                       </button>
@@ -541,16 +538,16 @@ export default function AppLayout({ children }: AppLayoutProps) {
               ) : (
                 /* Tab 2: Sources Detail View */
                 <div className="space-y-3">
-                  <h4 className="font-bold text-xs text-white">Document References</h4>
+                  <h4 className="font-bold text-xs text-slate-900 dark:text-white">Document References</h4>
                   {userFiles.length > 0 ? (
                     userFiles.map((f, idx) => (
-                      <div key={idx} className="p-3 rounded-xl bg-[#09231f] border border-[#0e3b34] space-y-1">
-                        <p className="font-bold text-teal-200 text-xs truncate">📄 {f.originalName}</p>
-                        <p className="text-[10px] text-teal-400/70">Indexed in vector store • {f.fileType}</p>
+                      <div key={idx} className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 space-y-1">
+                        <p className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate">📄 {f.originalName}</p>
+                        <p className="text-[10px] text-slate-500 dark:text-zinc-400">Indexed in vector store • {f.fileType}</p>
                       </div>
                     ))
                   ) : (
-                    <p className="text-xs text-teal-500/70 text-center py-6">
+                    <p className="text-xs text-slate-400 text-center py-6">
                       No documents available yet. Upload files to view context sources.
                     </p>
                   )}
@@ -559,7 +556,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             </div>
 
             {/* Input Form at Bottom */}
-            <form onSubmit={handleSendDrawerChat} className="p-3.5 border-t border-[#0d332e] bg-[#061815] space-y-2">
+            <form onSubmit={handleSendDrawerChat} className="p-3.5 border-t border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 space-y-2">
               <div className="relative flex items-center">
                 <input
                   type="text"
@@ -567,19 +564,19 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   value={chatMessage}
                   onChange={(e) => setChatMessage(e.target.value)}
                   disabled={isSending}
-                  className="w-full pl-3.5 pr-20 py-2.5 text-xs bg-[#09211d] border border-[#0e3b34] rounded-xl text-teal-100 placeholder-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-500 shadow-xs disabled:opacity-50"
+                  className="w-full pl-3.5 pr-20 py-2.5 text-xs bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 shadow-xs disabled:opacity-50"
                 />
                 <div className="absolute right-2 flex items-center gap-1">
                   <button
                     type="button"
-                    className="p-1.5 text-teal-400 hover:text-white transition"
+                    className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition"
                     title="Voice Input"
                   >
                     <Mic className="h-3.5 w-3.5" />
                   </button>
                   <button
                     type="button"
-                    className="p-1.5 text-teal-400 hover:text-white transition"
+                    className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition"
                     title="Audio Output"
                   >
                     <Volume2 className="h-3.5 w-3.5" />
@@ -587,7 +584,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   <button
                     type="submit"
                     disabled={isSending || !chatMessage.trim()}
-                    className="p-1.5 rounded-lg bg-teal-500 text-slate-950 font-bold hover:bg-teal-400 transition shadow-xs disabled:opacity-40"
+                    className="p-1.5 rounded-lg bg-purple-600 text-white font-bold hover:bg-purple-700 transition shadow-xs disabled:opacity-40"
                   >
                     <Send className="h-3.5 w-3.5" />
                   </button>

@@ -47,9 +47,5 @@ export default function LoginPage() {
     router.push("/dashboard");
   }
 
-  return (
-    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-indigo-950 to-zinc-950">
-      <AuthForm mode="login" onSubmit={handleLogin} />
-    </main>
-  );
+  return <AuthForm mode="login" onSubmit={handleLogin} />;
 }

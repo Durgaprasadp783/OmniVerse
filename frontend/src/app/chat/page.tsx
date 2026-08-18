@@ -13,6 +13,18 @@ import fileService, {
 import api from "@/lib/api";
 import ChatSidebar from "@/components/ChatSidebar";
 import VoiceControls from "@/components/VoiceControls";
+import {
+  MessageSquare,
+  Search,
+  Zap,
+  Send,
+  Bot,
+  User as UserIcon,
+  Sparkles,
+  FileText,
+  Menu,
+  X
+} from "lucide-react";
 
 type ChatMode = "document" | "session";
 
@@ -26,7 +38,7 @@ interface MessageUI {
 }
 
 export default function ChatPage() {
-  const { user, isAuthenticated, isLoading, logout } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
 
@@ -58,17 +70,14 @@ export default function ChatPage() {
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState<MessageUI[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
-  // Auto-scroll
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
-
-  useEffect(() => { setMounted(true); }, []);
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (mounted && !isLoading && !isAuthenticated) {
@@ -76,50 +85,51 @@ export default function ChatPage() {
     }
   }, [mounted, isAuthenticated, isLoading, router]);
 
-  // Load user files & chat sessions
-  const loadInitialData = useCallback(async () => {
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, []);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
+
+  // Load user files
+  const loadFiles = useCallback(async () => {
     try {
-      const [files, userSessions] = await Promise.all([
-        fileService.getUserFiles(),
-        fileService.getChatSessions(),
-      ]);
-      setUserFiles(files);
-      setSessions(userSessions);
-
-      const urlFileId =
-        typeof window !== "undefined"
-          ? new URLSearchParams(window.location.search).get("fileId")
-          : null;
-      if (urlFileId) {
-        setFileId(urlFileId);
-        setSelectedFileIds([urlFileId]);
-        setChatMode("document");
-      } else if (files.length > 0 && !fileId) {
-        setFileId(files[0].id || files[0]._id || "");
-        setSelectedFileIds(files.map((f) => f.id || f._id || ""));
+      const data = await fileService.getUserFiles();
+      setUserFiles(data);
+      if (data.length > 0) {
+        const firstId = data[0].id || data[0]._id || "";
+        setFileId(firstId);
+        setSelectedFileIds(data.map((f) => f.id || f._id || ""));
       }
+    } catch {
+      // ignore on unauth
+    }
+  }, []);
 
-      if (userSessions.length > 0 && chatMode === "session") {
-        setSessionId(userSessions[0].sessionId);
+  // Load chat sessions
+  const loadSessions = useCallback(async () => {
+    try {
+      const data = await fileService.getChatSessions();
+      setSessions(data);
+      if (data.length > 0 && !sessionId) {
+        setSessionId(data[0].sessionId);
       }
     } catch {
       // ignore
     }
-  }, [fileId, chatMode]);
+  }, [sessionId]);
 
-  useEffect(() => {
-    if (mounted && isAuthenticated) loadInitialData();
-  }, [mounted, isAuthenticated, loadInitialData]);
-
-  // Load session history when sessionId changes
-  const loadSessionHistory = useCallback(async (targetSessionId: string) => {
-    if (!targetSessionId || chatMode !== "session") return;
+  // Load session messages
+  const loadSessionMessages = useCallback(async (sid: string) => {
+    if (!sid) return;
     try {
       setHistoryLoading(true);
-      setError("");
-      const history = await fileService.getSessionHistory(targetSessionId);
+      setError(null);
+      const hist = await fileService.getSessionHistory(sid);
       setMessages(
-        history.map((m) => ({
+        hist.map((m) => ({
           id: m.id || m._id,
           role: m.role,
           content: m.message,
@@ -127,86 +137,73 @@ export default function ChatPage() {
         }))
       );
     } catch {
-      setMessages([]);
+      setError("Failed to load session messages.");
     } finally {
       setHistoryLoading(false);
     }
-  }, [chatMode]);
-
-  // Load document chat history
-  const loadDocChatHistory = useCallback(async (targetFileId: string) => {
-    if (!targetFileId || chatMode !== "document") return;
-    try {
-      setHistoryLoading(true);
-      setError("");
-      const history = await fileService.getChatHistory(targetFileId);
-      setMessages(
-        history.map((m) => ({
-          id: m.id || m._id,
-          role: m.role,
-          content: m.content,
-          sources: m.sources,
-          createdAt: m.createdAt,
-        }))
-      );
-    } catch {
-      setMessages([]);
-    } finally {
-      setHistoryLoading(false);
-    }
-  }, [chatMode]);
+  }, []);
 
   useEffect(() => {
-    if (chatMode === "session" && sessionId) {
-      loadSessionHistory(sessionId);
-    } else if (chatMode === "document" && fileId) {
-      loadDocChatHistory(fileId);
+    if (mounted && isAuthenticated) {
+      loadFiles();
+      loadSessions();
     }
-  }, [sessionId, fileId, chatMode, loadSessionHistory, loadDocChatHistory]);
+  }, [mounted, isAuthenticated, loadFiles, loadSessions]);
 
-  // Session Handlers
+  useEffect(() => {
+    if (mounted && isAuthenticated && chatMode === "session" && sessionId) {
+      loadSessionMessages(sessionId);
+    }
+  }, [mounted, isAuthenticated, chatMode, sessionId, loadSessionMessages]);
+
   const handleCreateSession = async () => {
     try {
-      const newSession = await fileService.createChatSession("New Chat", selectedFileIds);
-      setSessions((prev) => [newSession, ...prev]);
-      setSessionId(newSession.sessionId);
+      const newSess = await fileService.createChatSession(
+        `Chat Thread ${sessions.length + 1}`,
+        selectedFileIds
+      );
+      setSessions((prev) => [newSess, ...prev]);
+      setSessionId(newSess.sessionId);
       setMessages([]);
-      setError("");
+      setSidebarOpen(false);
     } catch {
-      const fallbackId = crypto.randomUUID();
-      setSessionId(fallbackId);
-      setMessages([]);
+      alert("Failed to create new chat thread.");
+    }
+  };
+
+  const handleDeleteSession = async (sid: string) => {
+    if (!confirm("Are you sure you want to delete this thread?")) return;
+    try {
+      await fileService.deleteChatSession(sid);
+      setSessions((prev) => prev.filter((s) => s.sessionId !== sid));
+      if (sessionId === sid) {
+        const remaining = sessions.filter((s) => s.sessionId !== sid);
+        if (remaining.length > 0) {
+          setSessionId(remaining[0].sessionId);
+        } else {
+          setSessionId(`session-${Date.now()}`);
+          setMessages([]);
+        }
+      }
+    } catch {
+      alert("Failed to delete chat thread.");
     }
   };
 
   const handleRenameSession = async (sid: string, newTitle: string) => {
     try {
-      const updated = await fileService.renameChatSession(sid, newTitle);
-      setSessions((prev) => prev.map((s) => (s.sessionId === sid ? updated : s)));
+      await fileService.renameChatSession(sid, newTitle);
+      setSessions((prev) =>
+        prev.map((s) => (s.sessionId === sid ? { ...s, title: newTitle } : s))
+      );
     } catch {
-      alert("Failed to rename chat session.");
+      alert("Failed to rename thread.");
     }
   };
 
-  const handleDeleteSession = async (sid: string) => {
-    try {
-      await fileService.deleteChatSession(sid);
-      const remaining = sessions.filter((s) => s.sessionId !== sid);
-      setSessions(remaining);
-      if (remaining.length > 0) {
-        setSessionId(remaining[0].sessionId);
-      } else {
-        handleCreateSession();
-      }
-    } catch {
-      alert("Failed to delete chat session.");
-    }
-  };
-
-  // Multi-document toggle
-  const handleToggleFileId = (fid: string) => {
+  const handleToggleFileId = (fId: string) => {
     setSelectedFileIds((prev) =>
-      prev.includes(fid) ? prev.filter((id) => id !== fid) : [...prev, fid]
+      prev.includes(fId) ? prev.filter((id) => id !== fId) : [...prev, fId]
     );
   };
 
@@ -218,79 +215,73 @@ export default function ChatPage() {
     setSelectedFileIds([]);
   };
 
-  // Prepare document
   const prepareDocument = async () => {
-    if (!fileId) { setError("Please select a document."); return; }
+    if (!fileId) return;
     try {
       setPrepping(true);
-      setError("");
-      setPrepStatus("Step 1/3: Extracting text...");
+      setPrepStatus("Extracting text and generating vector chunks...");
       await fileService.processFile(fileId);
-      setPrepStatus("Step 2/3: Chunking document...");
-      await fileService.chunkFile(fileId);
-      setPrepStatus("Step 3/3: Generating embeddings...");
       await fileService.embedFile(fileId);
-      setPrepStatus("✅ Document ready! You can chat now.");
-      await loadInitialData();
+      setPrepStatus("Vector embeddings generated successfully!");
+      setTimeout(() => setPrepStatus(""), 3000);
     } catch (err: any) {
-      setPrepStatus("");
-      setError(err.response?.data?.detail || "Failed to prepare document.");
+      setPrepStatus(err.response?.data?.detail || "Auto-prep failed.");
     } finally {
       setPrepping(false);
     }
   };
 
-  // Send Chat Message
   const sendMessage = async () => {
-    if (!question.trim() || loading) return;
+    const trimmed = question.trim();
+    if (!trimmed || loading) return;
 
-    const userPrompt = question.trim();
+    const userMessage: MessageUI = {
+      id: Date.now().toString(),
+      role: "user",
+      content: trimmed,
+      createdAt: new Date().toISOString(),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
     setQuestion("");
-    setError("");
-
-    setMessages((prev) => [...prev, { role: "user", content: userPrompt }]);
     setLoading(true);
+    setError(null);
 
     try {
-      if (chatMode === "document") {
-        const response = await api.post(`/api/files/${fileId}/chat`, {
-          query: userPrompt,
-          question: userPrompt,
-        });
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: response.data.answer || "",
-            sources: response.data.sources || [],
-          },
-        ]);
-      } else {
-        const result = await fileService.chatSession(
+      if (chatMode === "session") {
+        const res = await fileService.chatSession(
           sessionId,
-          userPrompt,
+          trimmed,
           undefined,
           selectedFileIds
         );
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: result.answer,
-            sessionSources: result.sources || [],
-          },
-        ]);
-        // Refresh sessions list to show lastMessage update
-        const updatedSessions = await fileService.getChatSessions();
-        setSessions(updatedSessions);
+        const assistantMessage: MessageUI = {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: res.answer,
+          sessionSources: res.sources,
+          createdAt: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, assistantMessage]);
+      } else {
+        const res = await fileService.chatWithFile(fileId, trimmed);
+        const assistantMessage: MessageUI = {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: res.answer,
+          sources: res.sources,
+          createdAt: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, assistantMessage]);
       }
     } catch (err: any) {
-      const msg = err.response?.data?.detail || "Failed to generate response.";
-      setError(msg);
-      setMessages((prev) => prev.slice(0, -1));
+      setError(
+        err.response?.data?.detail ||
+          err.message ||
+          "Failed to get an answer. Please check if your documents are indexed."
+      );
     } finally {
       setLoading(false);
-      setTimeout(() => textareaRef.current?.focus(), 50);
     }
   };
 
@@ -301,18 +292,18 @@ export default function ChatPage() {
     }
   };
 
-  // Run Advanced Hybrid Search
   const runAdvancedSearch = async () => {
     if (!searchQuery.trim()) return;
     try {
       setSearchLoading(true);
-      const res = await fileService.advancedSearch(
-        searchQuery.trim(),
-        selectedFileIds.length > 0 ? selectedFileIds : undefined
-      );
-      setSearchResults(res.results || []);
+      const res = await api.post("/api/hybrid-search", {
+        query: searchQuery.trim(),
+        fileIds: selectedFileIds.length > 0 ? selectedFileIds : undefined,
+        limit: 8,
+      });
+      setSearchResults(res.data?.results || []);
     } catch {
-      setSearchResults([]);
+      alert("Advanced search failed.");
     } finally {
       setSearchLoading(false);
     }
@@ -320,8 +311,8 @@ export default function ChatPage() {
 
   if (!mounted || isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-950 text-white">
-        <div className="h-8 w-8 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin" />
+      <div className="min-h-[400px] flex items-center justify-center bg-white text-slate-900">
+        <div className="h-8 w-8 rounded-full border-4 border-purple-600 border-t-transparent animate-spin" />
       </div>
     );
   }
@@ -331,67 +322,53 @@ export default function ChatPage() {
   const selectedFile = userFiles.find((f) => (f.id || f._id) === fileId);
 
   return (
-    <main className="flex flex-col h-screen bg-zinc-950 text-zinc-100 overflow-hidden">
-      {/* Top Header */}
-      <header className="bg-zinc-900/90 border-b border-zinc-800 backdrop-blur-md px-4 md:px-6 py-3 shrink-0 flex justify-between items-center z-20">
-        <div className="flex items-center gap-4">
+    <div className="flex flex-col h-[calc(100vh-6.5rem)] bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+      
+      {/* Top Toolbar Inside Workspace */}
+      <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3 shrink-0 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="lg:hidden p-2 text-zinc-400 hover:text-white rounded-lg bg-zinc-800"
+            className="lg:hidden p-2 text-slate-500 hover:text-slate-900 rounded-lg bg-slate-100"
           >
-            ☰
+            <Menu className="h-4 w-4" />
           </button>
-          <Link href="/dashboard" className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
-            OmniVerse
-          </Link>
-          <nav className="hidden md:flex items-center gap-4 text-sm">
-            <Link href="/dashboard" className="text-zinc-400 hover:text-zinc-200 transition">Dashboard</Link>
-            <Link href="/documents" className="text-zinc-400 hover:text-zinc-200 transition">My Documents</Link>
-            <Link href="/chat" className="text-indigo-400 font-semibold border-b-2 border-indigo-500 pb-0.5">RAG Chat</Link>
-            <Link href="/study" className="text-zinc-400 hover:text-zinc-200 transition">AI Study Mode</Link>
-            <Link href="/analytics" className="text-zinc-400 hover:text-zinc-200 transition">Analytics</Link>
-          </nav>
-        </div>
 
-        <div className="flex items-center gap-3">
           {/* Mode Switcher */}
-          <div className="flex items-center bg-zinc-800/80 rounded-lg p-1 border border-zinc-700/50 text-xs">
+          <div className="flex items-center bg-slate-100 rounded-xl p-1 border border-slate-200 text-xs">
             <button
               onClick={() => setChatMode("session")}
-              className={`px-3 py-1 rounded-md transition font-medium ${
-                chatMode === "session" ? "bg-indigo-600 text-white shadow" : "text-zinc-400 hover:text-zinc-200"
+              className={`px-3 py-1.5 rounded-lg transition font-bold ${
+                chatMode === "session"
+                  ? "bg-purple-600 text-white shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              💬 Sessions
+              💬 Multi-Doc Sessions
             </button>
             <button
               onClick={() => setChatMode("document")}
-              className={`px-3 py-1 rounded-md transition font-medium ${
-                chatMode === "document" ? "bg-indigo-600 text-white shadow" : "text-zinc-400 hover:text-zinc-200"
+              className={`px-3 py-1.5 rounded-lg transition font-bold ${
+                chatMode === "document"
+                  ? "bg-purple-600 text-white shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              📄 Single Doc
+              📄 Single Document
             </button>
           </div>
+        </div>
 
+        <div className="flex items-center gap-3">
           <button
             onClick={() => setShowSearchModal(true)}
-            className="hidden sm:flex items-center gap-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 px-3 py-1.5 rounded-lg text-xs font-medium transition"
+            className="flex items-center gap-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-2xs"
           >
-            <span>🔎 Advanced Search</span>
-          </button>
-
-          <span className="text-sm text-zinc-400 hidden md:inline">
-            <span className="text-zinc-200 font-medium">{user?.full_name || user?.email}</span>
-          </span>
-          <button
-            onClick={() => { logout(); router.push("/login"); }}
-            className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 px-3 py-1.5 rounded-lg text-xs font-medium transition"
-          >
-            Logout
+            <Search className="h-3.5 w-3.5" />
+            <span>Hybrid Search</span>
           </button>
         </div>
-      </header>
+      </div>
 
       {/* Main Body with Sidebar + Chat Area */}
       <div className="flex flex-1 overflow-hidden relative">
@@ -414,21 +391,21 @@ export default function ChatPage() {
         )}
 
         {/* Chat Interface */}
-        <div className="flex-1 flex flex-col h-full bg-zinc-950 overflow-hidden">
+        <div className="flex-1 flex flex-col h-full bg-slate-50/50 overflow-hidden">
           {/* Single Doc Toolbar */}
           {chatMode === "document" && (
-            <div className="bg-zinc-900/60 border-b border-zinc-800/80 px-6 py-2.5 shrink-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+            <div className="bg-white border-b border-slate-200 px-6 py-2.5 shrink-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
               <div className="flex items-center gap-3 w-full sm:w-auto">
-                <span className="text-zinc-400 shrink-0 font-medium">Document:</span>
+                <span className="text-slate-500 shrink-0 font-bold">Document:</span>
                 {userFiles.length > 0 ? (
                   <select
                     value={fileId}
                     onChange={(e) => setFileId(e.target.value)}
-                    className="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-zinc-200 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 truncate max-w-md"
+                    className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-slate-800 text-xs focus:outline-none focus:ring-1 focus:ring-purple-500 truncate max-w-md"
                   >
                     {userFiles.map((f) => (
                       <option key={f.id || f._id} value={f.id || f._id}>
-                        📄 {f.originalName} ({f.id || f._id})
+                        📄 {f.originalName}
                       </option>
                     ))}
                   </select>
@@ -438,18 +415,19 @@ export default function ChatPage() {
                     value={fileId}
                     onChange={(e) => setFileId(e.target.value)}
                     placeholder="Enter File ID"
-                    className="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-zinc-200 text-xs font-mono w-64"
+                    className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-slate-800 text-xs font-mono w-64"
                   />
                 )}
               </div>
               <div className="flex items-center gap-3">
-                {prepStatus && <span className="text-indigo-400 animate-pulse">{prepStatus}</span>}
+                {prepStatus && <span className="text-purple-600 font-semibold animate-pulse">{prepStatus}</span>}
                 <button
                   onClick={prepareDocument}
                   disabled={prepping || !fileId}
-                  className="bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 px-3 py-1.5 rounded-lg transition disabled:opacity-40 font-medium"
+                  className="bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 px-3 py-1.5 rounded-lg transition disabled:opacity-40 font-bold flex items-center gap-1"
                 >
-                  {prepping ? "Processing..." : "⚡ Auto-Prepare"}
+                  <Zap className="h-3.5 w-3.5 text-purple-600" />
+                  <span>{prepping ? "Processing..." : "Auto-Prepare"}</span>
                 </button>
               </div>
             </div>
@@ -458,29 +436,31 @@ export default function ChatPage() {
           {/* Messages Feed */}
           <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 max-w-4xl mx-auto w-full">
             {historyLoading && (
-              <div className="text-center py-8 text-zinc-500 text-sm flex items-center justify-center gap-2">
-                <div className="h-4 w-4 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
+              <div className="text-center py-8 text-slate-400 text-xs flex items-center justify-center gap-2">
+                <div className="h-4 w-4 rounded-full border-2 border-purple-600 border-t-transparent animate-spin" />
                 <span>Loading conversation thread...</span>
               </div>
             )}
 
             {!historyLoading && messages.length === 0 && (
-              <div className="text-center py-20 space-y-4">
-                <div className="text-6xl">🤖</div>
-                <h2 className="text-2xl font-bold text-white">OmniVerse RAG Assistant</h2>
-                <p className="text-zinc-400 text-sm max-w-md mx-auto leading-relaxed">
-                  Ask multi-document questions across your library. Reranking and vector search ensure grounded, precise answers with source citations.
+              <div className="text-center py-16 space-y-4">
+                <div className="h-16 w-16 rounded-3xl bg-purple-100 border border-purple-200 flex items-center justify-center text-purple-600 mx-auto shadow-sm">
+                  <Bot className="h-8 w-8" />
+                </div>
+                <h2 className="text-2xl font-black text-slate-900">OmniVerse RAG Assistant</h2>
+                <p className="text-slate-500 text-xs sm:text-sm max-w-md mx-auto leading-relaxed font-normal">
+                  Ask grounded questions across your uploaded documents. Vector hybrid search and cross-encoder reranking provide page-level citations.
                 </p>
-                <div className="flex flex-wrap justify-center gap-2 mt-4">
+                <div className="flex flex-wrap justify-center gap-2 pt-2">
                   {[
-                    "Compare DevOps Unit 2 and Unit 3.",
-                    "What are the main architectural conclusions?",
-                    "Summarize key deployment concepts.",
+                    "Summarize the key findings.",
+                    "What are the main concepts in these documents?",
+                    "Compare the conclusions and recommendations.",
                   ].map((q) => (
                     <button
                       key={q}
                       onClick={() => { setQuestion(q); textareaRef.current?.focus(); }}
-                      className="bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 text-xs px-3.5 py-1.5 rounded-full transition"
+                      className="bg-white hover:bg-purple-50 border border-slate-200 text-slate-700 text-xs px-3.5 py-1.5 rounded-full transition shadow-2xs cursor-pointer font-medium"
                     >
                       {q}
                     </button>
@@ -494,16 +474,16 @@ export default function ChatPage() {
                 key={msg.id || index}
                 className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}
               >
-                <div className="flex items-center gap-2 mb-1.5 text-xs text-zinc-400">
+                <div className="flex items-center gap-2 mb-1.5 text-xs text-slate-400 font-semibold">
                   {msg.role === "user" ? (
                     <>
-                      <span className="font-semibold text-zinc-300">You</span>
-                      <span>👤</span>
+                      <span>You</span>
+                      <UserIcon className="h-3.5 w-3.5" />
                     </>
                   ) : (
                     <>
-                      <span>🤖</span>
-                      <span className="font-bold text-indigo-400">OmniVerse AI</span>
+                      <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                      <span className="font-bold text-purple-700">OmniVerse AI</span>
                     </>
                   )}
                 </div>
@@ -511,28 +491,28 @@ export default function ChatPage() {
                 <div
                   className={`max-w-2xl rounded-2xl p-4 text-sm leading-relaxed ${
                     msg.role === "user"
-                      ? "bg-indigo-600 text-white rounded-tr-none shadow-lg shadow-indigo-600/20"
-                      : "bg-zinc-900 border border-zinc-800 text-zinc-200 rounded-tl-none shadow-xl"
+                      ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-tr-none shadow-md shadow-purple-600/10"
+                      : "bg-white border border-slate-200 text-slate-800 rounded-tl-none shadow-sm"
                   }`}
                 >
                   <p className="whitespace-pre-wrap">{msg.content}</p>
 
                   {/* Document-mode sources */}
                   {msg.role === "assistant" && msg.sources && msg.sources.length > 0 && (
-                    <div className="mt-4 pt-3 border-t border-zinc-800/80 space-y-2">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-1">
+                    <div className="mt-4 pt-3 border-t border-slate-100 space-y-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-purple-700 flex items-center gap-1">
                         📚 Reranked Sources ({msg.sources.length})
                       </span>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {msg.sources.map((src, sIdx) => (
-                          <div key={src.chunkId || sIdx} className="bg-zinc-950 border border-zinc-800 rounded-lg p-2 text-xs space-y-1">
-                            <div className="flex items-center justify-between text-indigo-400 font-medium">
+                          <div key={src.chunkId || sIdx} className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs space-y-1">
+                            <div className="flex items-center justify-between text-purple-700 font-semibold">
                               <span className="truncate">📄 {src.filename || `Source #${src.source || sIdx + 1}`}</span>
-                              <span className="text-emerald-400 font-mono text-[10px]">
+                              <span className="text-emerald-600 font-mono text-[10px] bg-emerald-50 px-1.5 py-0.5 rounded">
                                 {((src.score ?? src.similarity ?? 0) * 100).toFixed(1)}%
                               </span>
                             </div>
-                            {src.page != null && <p className="text-zinc-500 text-[10px]">Page {src.page}</p>}
+                            {src.page != null && <p className="text-slate-400 text-[10px]">Page {src.page}</p>}
                           </div>
                         ))}
                       </div>
@@ -541,19 +521,19 @@ export default function ChatPage() {
 
                   {/* Session-mode multi-doc sources */}
                   {msg.role === "assistant" && msg.sessionSources && msg.sessionSources.length > 0 && (
-                    <div className="mt-4 pt-3 border-t border-zinc-800/80 space-y-2">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-1">
+                    <div className="mt-4 pt-3 border-t border-slate-100 space-y-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-purple-700 flex items-center gap-1">
                         📚 Context Sources ({msg.sessionSources.length})
                       </span>
                       <div className="flex flex-col gap-1.5">
                         {msg.sessionSources.map((src, sIdx) => (
-                          <div key={sIdx} className="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-2 text-indigo-300 font-medium truncate">
+                          <div key={sIdx} className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2 text-slate-800 font-medium truncate">
                               <span>📄</span>
                               <span className="truncate">{src.filename || "Unknown"}</span>
-                              {src.page != null && <span className="text-zinc-500 shrink-0">— Page {src.page}</span>}
+                              {src.page != null && <span className="text-slate-400 shrink-0">— Page {src.page}</span>}
                             </div>
-                            <span className="text-emerald-400 font-mono text-[11px] shrink-0 bg-emerald-400/10 px-2 py-0.5 rounded-full">
+                            <span className="text-emerald-700 font-mono text-[11px] shrink-0 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full font-bold">
                               {(src.similarity * 100).toFixed(1)}%
                             </span>
                           </div>
@@ -567,15 +547,15 @@ export default function ChatPage() {
 
             {loading && (
               <div className="flex flex-col items-start">
-                <div className="flex items-center gap-2 mb-1.5 text-xs text-zinc-400">
-                  <span>🤖</span>
-                  <span className="font-bold text-indigo-400">OmniVerse AI</span>
+                <div className="flex items-center gap-2 mb-1.5 text-xs text-purple-700 font-bold">
+                  <Bot className="h-3.5 w-3.5" />
+                  <span>OmniVerse AI</span>
                 </div>
-                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl rounded-tl-none p-4 text-sm text-zinc-400 flex items-center gap-3">
+                <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-none p-4 text-xs text-slate-500 flex items-center gap-3 shadow-sm">
                   <div className="flex gap-1">
-                    <span className="h-2 w-2 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <span className="h-2 w-2 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <span className="h-2 w-2 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: "300ms" }} />
+                    <span className="h-2 w-2 rounded-full bg-purple-600 animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="h-2 w-2 rounded-full bg-purple-600 animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="h-2 w-2 rounded-full bg-purple-600 animate-bounce" style={{ animationDelay: "300ms" }} />
                   </div>
                   <span>Reranking candidates &amp; generating grounded answer...</span>
                 </div>
@@ -583,7 +563,7 @@ export default function ChatPage() {
             )}
 
             {error && (
-              <div className="rounded-xl bg-red-500/10 border border-red-500/30 p-4 text-sm text-red-400 flex items-start gap-2">
+              <div className="rounded-xl bg-red-50 border border-red-200 p-4 text-xs text-red-600 flex items-start gap-2">
                 <span>⚠️</span>
                 <span>{error}</span>
               </div>
@@ -593,7 +573,7 @@ export default function ChatPage() {
           </div>
 
           {/* Footer Input Controls */}
-          <footer className="bg-zinc-900/90 border-t border-zinc-800 p-4 shrink-0 backdrop-blur-md">
+          <footer className="bg-white border-t border-slate-200 p-4 shrink-0 shadow-xs">
             <div className="max-w-4xl mx-auto flex items-end gap-3">
               <textarea
                 ref={textareaRef}
@@ -607,7 +587,7 @@ export default function ChatPage() {
                 }
                 rows={2}
                 disabled={loading}
-                className="flex-1 rounded-xl bg-zinc-950 border border-zinc-800 p-3 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none disabled:opacity-50"
+                className="flex-1 rounded-xl bg-slate-50 border border-slate-200 p-3 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 focus:bg-white resize-none disabled:opacity-50 transition"
               />
 
               {/* Voice STT & TTS Controls */}
@@ -622,14 +602,14 @@ export default function ChatPage() {
               <button
                 onClick={sendMessage}
                 disabled={loading || !question.trim() || (chatMode === "document" && !fileId)}
-                className="px-5 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm shadow-lg shadow-indigo-600/30 disabled:opacity-40 disabled:cursor-not-allowed transition shrink-0 flex items-center gap-2"
+                className="px-5 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs sm:text-sm shadow-md shadow-purple-600/20 disabled:opacity-40 disabled:cursor-not-allowed transition shrink-0 flex items-center gap-2 cursor-pointer"
               >
                 {loading ? (
                   <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
                 ) : (
                   <>
                     <span>Send</span>
-                    <span className="text-indigo-300 text-xs">↵</span>
+                    <Send className="h-3.5 w-3.5" />
                   </>
                 )}
               </button>
@@ -640,18 +620,18 @@ export default function ChatPage() {
 
       {/* Advanced Search Modal */}
       {showSearchModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl max-w-2xl w-full p-6 space-y-6 shadow-2xl">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <span>🔎</span>
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl max-w-2xl w-full p-6 space-y-6 shadow-2xl">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Search className="h-4 w-4 text-purple-600" />
                 <span>Advanced Hybrid Search Engine</span>
               </h3>
               <button
                 onClick={() => setShowSearchModal(false)}
-                className="text-zinc-500 hover:text-zinc-300 p-1"
+                className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100"
               >
-                ✕
+                <X className="h-4 w-4" />
               </button>
             </div>
 
@@ -662,12 +642,12 @@ export default function ChatPage() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && runAdvancedSearch()}
                 placeholder="Enter keywords or semantic query..."
-                className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-zinc-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs sm:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
               />
               <button
                 onClick={runAdvancedSearch}
                 disabled={searchLoading}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition"
+                className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
               >
                 {searchLoading ? "Searching..." : "Search"}
               </button>
@@ -675,18 +655,20 @@ export default function ChatPage() {
 
             <div className="max-h-80 overflow-y-auto space-y-3 pr-1">
               {searchResults.length === 0 ? (
-                <p className="text-xs text-zinc-500 text-center py-8">
+                <p className="text-xs text-slate-400 text-center py-8">
                   No hybrid search results yet. Enter a query above.
                 </p>
               ) : (
                 searchResults.map((item, idx) => (
-                  <div key={idx} className="p-4 bg-zinc-950 border border-zinc-800 rounded-2xl space-y-2 text-xs">
-                    <div className="flex items-center justify-between text-indigo-400 font-medium">
+                  <div key={idx} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2 text-xs">
+                    <div className="flex items-center justify-between text-purple-700 font-bold">
                       <span>📄 {item.source?.filename || item.source?.fileId}</span>
-                      <span className="text-emerald-400 font-mono">Score: {(item.similarity * 100).toFixed(1)}%</span>
+                      <span className="text-emerald-700 font-mono bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                        Score: {(item.similarity * 100).toFixed(1)}%
+                      </span>
                     </div>
-                    <p className="text-zinc-300 leading-relaxed">{item.text}</p>
-                    {item.source?.page && <span className="text-zinc-500 text-[10px] block">Page {item.source.page}</span>}
+                    <p className="text-slate-700 leading-relaxed">{item.text}</p>
+                    {item.source?.page && <span className="text-slate-400 text-[10px] block">Page {item.source.page}</span>}
                   </div>
                 ))
               )}
@@ -694,6 +676,6 @@ export default function ChatPage() {
           </div>
         </div>
       )}
-    </main>
+    </div>
   );
 }

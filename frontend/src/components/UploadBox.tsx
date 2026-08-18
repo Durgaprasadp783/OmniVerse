@@ -2,6 +2,7 @@
 
 import React, { useState, useRef } from "react";
 import fileService, { UserFile } from "@/services/fileService";
+import { UploadCloud, AlertCircle } from "lucide-react";
 
 interface UploadBoxProps {
   onUploadSuccess?: (newFile: UserFile) => void;
@@ -90,10 +91,10 @@ export default function UploadBox({ onUploadSuccess }: UploadBoxProps) {
         onDragLeave={onDragLeave}
         onDrop={onDrop}
         onClick={() => fileInputRef.current?.click()}
-        className={`relative cursor-pointer rounded-2xl border-2 border-dashed p-8 text-center transition-all duration-300 ${
+        className={`relative cursor-pointer rounded-2xl border-2 border-dashed p-8 sm:p-10 text-center transition-all duration-300 ${
           isDragging
-            ? "border-indigo-400 bg-indigo-500/10 scale-[1.01]"
-            : "border-zinc-700 bg-zinc-900/60 hover:border-indigo-500/50 hover:bg-zinc-900/90"
+            ? "border-purple-600 bg-purple-50 scale-[1.01]"
+            : "border-purple-200 bg-slate-50/70 hover:border-purple-400 hover:bg-purple-50/40"
         }`}
       >
         <input
@@ -109,49 +110,35 @@ export default function UploadBox({ onUploadSuccess }: UploadBoxProps) {
         />
 
         <div className="flex flex-col items-center justify-center space-y-4">
-          <div className="h-16 w-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
-            <svg
-              className="w-8 h-8"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-              />
-            </svg>
+          <div className="h-16 w-16 rounded-2xl bg-purple-100 border border-purple-200 flex items-center justify-center text-purple-600 shadow-xs">
+            <UploadCloud className="w-8 h-8" />
           </div>
 
           <div>
-            <p className="text-lg font-semibold text-zinc-100">
+            <p className="text-lg font-bold text-slate-800">
               {uploading
                 ? `Uploading ${selectedFileName}...`
                 : "Drop your document here, or browse"}
             </p>
-            <p className="text-sm text-zinc-400 mt-1">
+            <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium">
               Supports PDF, DOCX, PPTX, PNG, JPEG (Up to 20MB)
             </p>
           </div>
 
           {uploading && (
-            <div className="w-full max-w-xs space-y-2">
-              <div className="h-2 w-full bg-zinc-800 rounded-full overflow-hidden">
-                <div className="h-full bg-indigo-500 animate-pulse w-full rounded-full" />
+            <div className="w-full max-w-xs space-y-2 pt-2">
+              <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
+                <div className="h-full bg-purple-600 animate-pulse w-full rounded-full" />
               </div>
-              <p className="text-xs text-indigo-400">Processing file upload...</p>
+              <p className="text-xs text-purple-600 font-semibold">Processing vector indexing...</p>
             </div>
           )}
         </div>
       </div>
 
       {error && (
-        <div className="mt-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm flex items-center gap-2">
-          <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
+        <div className="mt-4 p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs sm:text-sm flex items-center gap-2">
+          <AlertCircle className="w-5 h-5 shrink-0 text-red-500" />
           <span>{error}</span>
         </div>
       )}

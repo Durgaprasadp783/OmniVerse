@@ -121,20 +121,20 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* ── 1. GREETING BANNER ──────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-[#051512] p-6 rounded-2xl border border-[#0d332e] shadow-lg">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-sm transition-colors">
         <div>
-          <h2 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
+          <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
             <span>Welcome back, {user?.full_name?.split(" ")[0] || "Durga"}!</span>
             <span>👋</span>
           </h2>
-          <p className="text-xs text-teal-400/80 mt-1 font-medium">
+          <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1 font-medium">
             Here&apos;s what&apos;s happening with your knowledge base today.
           </p>
         </div>
 
         <Link
           href="/upload"
-          className="px-4 py-2.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-xs transition shadow-md shadow-teal-500/20 flex items-center gap-2"
+          className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs transition shadow-sm shadow-purple-600/20 flex items-center gap-2"
         >
           <Upload className="h-4 w-4" />
           <span>Upload Documents</span>
@@ -144,57 +144,57 @@ export default function DashboardPage() {
       {/* ── 2. TOP ROW: 4 STAT METRIC CARDS ────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {/* Stat 1: Total Documents */}
-        <div className="p-5 rounded-2xl bg-[#051512] border border-[#0d332e] shadow-md flex items-center justify-between">
+        <div className="p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-sm flex items-center justify-between transition-colors">
           <div className="space-y-1">
-            <p className="text-xs font-semibold text-teal-400/80">Total Documents</p>
-            <h3 className="text-2xl font-bold text-white">{totalDocs}</h3>
-            <span className="text-[11px] font-semibold text-teal-400 flex items-center gap-1">
+            <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">Total Documents</p>
+            <h3 className="text-2xl font-extrabold text-slate-900 dark:text-white">{totalDocs}</h3>
+            <span className="text-[11px] font-semibold text-purple-600 dark:text-purple-400 flex items-center gap-1">
               <span>↑ 12 this week</span>
             </span>
           </div>
-          <div className="p-3 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-400 shrink-0">
+          <div className="p-3 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-800/60 shrink-0">
             <FileText className="h-6 w-6" />
           </div>
         </div>
 
         {/* Stat 2: Vector Chunks */}
-        <div className="p-5 rounded-2xl bg-[#051512] border border-[#0d332e] shadow-md flex items-center justify-between">
+        <div className="p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-sm flex items-center justify-between transition-colors">
           <div className="space-y-1">
-            <p className="text-xs font-semibold text-teal-400/80">Vector Chunks</p>
-            <h3 className="text-2xl font-bold text-white">{totalChunks.toLocaleString()}</h3>
-            <span className="text-[11px] font-semibold text-teal-400 flex items-center gap-1">
+            <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">Vector Chunks</p>
+            <h3 className="text-2xl font-extrabold text-slate-900 dark:text-white">{totalChunks.toLocaleString()}</h3>
+            <span className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
               <span>↑ 18.3% this week</span>
             </span>
           </div>
-          <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shrink-0">
+          <div className="p-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800/60 shrink-0">
             <Layers className="h-6 w-6" />
           </div>
         </div>
 
         {/* Stat 3: Total Chats */}
-        <div className="p-5 rounded-2xl bg-[#051512] border border-[#0d332e] shadow-md flex items-center justify-between">
+        <div className="p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-sm flex items-center justify-between transition-colors">
           <div className="space-y-1">
-            <p className="text-xs font-semibold text-teal-400/80">Total Chats</p>
-            <h3 className="text-2xl font-bold text-white">{totalSessions}</h3>
-            <span className="text-[11px] font-semibold text-teal-400 flex items-center gap-1">
+            <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">Total Chats</p>
+            <h3 className="text-2xl font-extrabold text-slate-900 dark:text-white">{totalSessions}</h3>
+            <span className="text-[11px] font-semibold text-violet-600 dark:text-violet-400 flex items-center gap-1">
               <span>↑ 23 this week</span>
             </span>
           </div>
-          <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 shrink-0">
+          <div className="p-3 rounded-xl bg-violet-50 dark:bg-violet-950/60 text-violet-600 dark:text-violet-400 border border-violet-100 dark:border-violet-800/60 shrink-0">
             <MessageSquare className="h-6 w-6" />
           </div>
         </div>
 
         {/* Stat 4: Storage Used */}
-        <div className="p-5 rounded-2xl bg-[#051512] border border-[#0d332e] shadow-md flex items-center justify-between">
+        <div className="p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-sm flex items-center justify-between transition-colors">
           <div className="space-y-1">
-            <p className="text-xs font-semibold text-teal-400/80">Storage Used</p>
-            <h3 className="text-2xl font-bold text-white">{storageGB} GB</h3>
-            <span className="text-[11px] font-semibold text-teal-500/70">
+            <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">Storage Used</p>
+            <h3 className="text-2xl font-extrabold text-slate-900 dark:text-white">{storageGB} GB</h3>
+            <span className="text-[11px] font-semibold text-slate-400 dark:text-zinc-500">
               of 10 GB
             </span>
           </div>
-          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 shrink-0">
+          <div className="p-3 rounded-xl bg-pink-50 dark:bg-pink-950/60 text-pink-600 dark:text-pink-400 border border-pink-100 dark:border-pink-800/60 shrink-0">
             <HardDrive className="h-6 w-6" />
           </div>
         </div>
@@ -203,54 +203,54 @@ export default function DashboardPage() {
       {/* ── 3. MIDDLE ROW: KNOWLEDGE BASE OVERVIEW & DOCUMENT TYPES ─────── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left: Knowledge Base Overview (7 Cols) */}
-        <div className="lg:col-span-7 bg-[#051512] p-6 rounded-2xl border border-[#0d332e] shadow-md space-y-4 flex flex-col justify-between">
+        <div className="lg:col-span-7 bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-sm space-y-4 flex flex-col justify-between transition-colors">
           <div>
-            <div className="flex justify-between items-center pb-3 border-b border-[#0d332e]">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100 dark:border-zinc-800">
               <div>
-                <h3 className="font-bold text-white text-sm">Knowledge Base Overview</h3>
-                <div className="flex items-center gap-4 text-xs mt-1 text-teal-400/80 font-medium">
+                <h3 className="font-bold text-slate-900 dark:text-white text-sm">Knowledge Base Overview</h3>
+                <div className="flex items-center gap-4 text-xs mt-1 text-slate-500 dark:text-zinc-400 font-medium">
                   <span className="flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-teal-400" /> Embeddings
+                    <span className="h-2 w-2 rounded-full bg-purple-600" /> Embeddings
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-emerald-400" /> Queries
+                    <span className="h-2 w-2 rounded-full bg-indigo-500" /> Queries
                   </span>
                 </div>
               </div>
-              <div className="flex items-center gap-1 text-xs text-teal-300 border border-[#0e3b34] rounded-lg px-2.5 py-1 bg-[#09211d]">
+              <div className="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-1 bg-slate-50 dark:bg-zinc-800">
                 <span>This Month</span>
-                <ChevronDown className="h-3 w-3 text-teal-400" />
+                <ChevronDown className="h-3 w-3 text-slate-500" />
               </div>
             </div>
 
-            {/* Glowing Line Graph */}
+            {/* Line Graph */}
             <div className="h-40 w-full mt-4 relative">
               <svg className="w-full h-full overflow-visible" viewBox="0 0 300 100" preserveAspectRatio="none">
                 <defs>
-                  <linearGradient id="cyberTealGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#14b8a6" stopOpacity="0.4" />
-                    <stop offset="100%" stopColor="#14b8a6" stopOpacity="0" />
+                  <linearGradient id="purpleLightGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.2" />
+                    <stop offset="100%" stopColor="#7c3aed" stopOpacity="0.0" />
                   </linearGradient>
                 </defs>
                 <path
                   d="M0,75 Q50,45 100,55 T200,20 T300,30 L300,100 L0,100 Z"
-                  fill="url(#cyberTealGradient)"
+                  fill="url(#purpleLightGradient)"
                 />
                 <path
                   d="M0,75 Q50,45 100,55 T200,20 T300,30"
                   fill="none"
-                  stroke="#14b8a6"
+                  stroke="#7c3aed"
                   strokeWidth="3"
                   strokeLinecap="round"
                 />
-                <circle cx="0" cy="75" r="4" fill="#14b8a6" />
-                <circle cx="60" cy="50" r="4" fill="#14b8a6" />
-                <circle cx="120" cy="55" r="4" fill="#14b8a6" />
-                <circle cx="180" cy="30" r="4" fill="#14b8a6" />
-                <circle cx="240" cy="20" r="4" fill="#14b8a6" />
-                <circle cx="300" cy="30" r="4" fill="#14b8a6" />
+                <circle cx="0" cy="75" r="4" fill="#7c3aed" />
+                <circle cx="60" cy="50" r="4" fill="#7c3aed" />
+                <circle cx="120" cy="55" r="4" fill="#7c3aed" />
+                <circle cx="180" cy="30" r="4" fill="#7c3aed" />
+                <circle cx="240" cy="20" r="4" fill="#7c3aed" />
+                <circle cx="300" cy="30" r="4" fill="#7c3aed" />
               </svg>
-              <div className="flex justify-between text-[10px] text-teal-400/70 font-medium mt-2">
+              <div className="flex justify-between text-[10px] text-slate-400 dark:text-zinc-500 font-medium mt-2">
                 <span>May 1</span>
                 <span>May 6</span>
                 <span>May 11</span>
@@ -263,101 +263,102 @@ export default function DashboardPage() {
           </div>
 
           {/* 4 Sub Stat Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-[#0d332e]">
-            <div className="p-2.5 rounded-xl bg-[#09211d] border border-[#0e3b34] text-center">
-              <span className="text-[10px] font-semibold text-teal-400/70 block">Total Pages</span>
-              <span className="text-xs font-bold text-white mt-0.5 block">18,532</span>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-slate-100 dark:border-zinc-800">
+            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200/80 dark:border-zinc-800 text-center">
+              <span className="text-[10px] font-semibold text-slate-500 dark:text-zinc-400 block">Total Pages</span>
+              <span className="text-xs font-bold text-slate-900 dark:text-white mt-0.5 block">18,532</span>
             </div>
-            <div className="p-2.5 rounded-xl bg-[#09211d] border border-[#0e3b34] text-center">
-              <span className="text-[10px] font-semibold text-teal-400/70 block">Total Words</span>
-              <span className="text-xs font-bold text-white mt-0.5 block">3.2M</span>
+            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200/80 dark:border-zinc-800 text-center">
+              <span className="text-[10px] font-semibold text-slate-500 dark:text-zinc-400 block">Total Words</span>
+              <span className="text-xs font-bold text-slate-900 dark:text-white mt-0.5 block">3.2M</span>
             </div>
-            <div className="p-2.5 rounded-xl bg-[#09211d] border border-[#0e3b34] text-center">
-              <span className="text-[10px] font-semibold text-teal-400/70 block">Avg. Chunk Size</span>
-              <span className="text-xs font-bold text-white mt-0.5 block">512 tokens</span>
+            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200/80 dark:border-zinc-800 text-center">
+              <span className="text-[10px] font-semibold text-slate-500 dark:text-zinc-400 block">Avg. Chunk Size</span>
+              <span className="text-xs font-bold text-slate-900 dark:text-white mt-0.5 block">512 tokens</span>
             </div>
-            <div className="p-2.5 rounded-xl bg-[#09211d] border border-[#0e3b34] text-center">
-              <span className="text-[10px] font-semibold text-teal-400/70 block">Top Topic</span>
-              <span className="text-xs font-bold text-white mt-0.5 block">AI / ML</span>
+            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200/80 dark:border-zinc-800 text-center">
+              <span className="text-[10px] font-semibold text-slate-500 dark:text-zinc-400 block">Top Topic</span>
+              <span className="text-xs font-bold text-slate-900 dark:text-white mt-0.5 block">AI / ML</span>
             </div>
           </div>
         </div>
 
         {/* Right: Document Types Donut Chart (5 Cols) */}
-        <div className="lg:col-span-5 bg-[#051512] p-6 rounded-2xl border border-[#0d332e] shadow-md space-y-4 flex flex-col justify-between">
-          <h3 className="font-bold text-white text-sm border-b border-[#0d332e] pb-3">
+        <div className="lg:col-span-5 bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-sm space-y-4 flex flex-col justify-between transition-colors">
+          <h3 className="font-bold text-slate-900 dark:text-white text-sm border-b border-slate-100 dark:border-zinc-800 pb-3">
             Document Types
           </h3>
 
           <div className="flex items-center gap-6 pt-2">
-            {/* Cyber Donut Chart SVG */}
+            {/* Donut Chart SVG */}
             <div className="relative h-36 w-36 shrink-0">
               <svg className="h-full w-full transform -rotate-90" viewBox="0 0 36 36">
                 <path
                   d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                   fill="none"
-                  stroke="#09211d"
+                  stroke="#e2e8f0"
+                  className="dark:stroke-zinc-800"
                   strokeWidth="4"
                 />
                 <path
                   d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                   fill="none"
-                  stroke="#14b8a6"
+                  stroke="#7c3aed"
                   strokeWidth="4"
                   strokeDasharray={`${pdfPercent}, 100`}
                 />
                 <path
                   d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                   fill="none"
-                  stroke="#38bdf8"
+                  stroke="#6366f1"
                   strokeWidth="4"
                   strokeDasharray={`${docxPercent}, 100`}
                   strokeDashoffset={`-${pdfPercent}`}
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <span className="text-xl font-bold text-white">{totalDocs}</span>
-                <span className="text-[10px] text-teal-400/70 font-semibold uppercase">Total</span>
+                <span className="text-xl font-extrabold text-slate-900 dark:text-white">{totalDocs}</span>
+                <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-bold uppercase">Total</span>
               </div>
             </div>
 
             {/* Legend Breakdown */}
-            <div className="space-y-2 text-xs text-teal-200 flex-1">
+            <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300 flex-1">
               <div className="flex justify-between items-center">
                 <span className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-teal-400" /> PDF
+                  <span className="h-2 w-2 rounded-full bg-purple-600" /> PDF
                 </span>
-                <span className="font-bold text-white">{pdfPercent}%</span>
+                <span className="font-bold text-slate-900 dark:text-white">{pdfPercent}%</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-sky-400" /> DOCX
+                  <span className="h-2 w-2 rounded-full bg-indigo-500" /> DOCX
                 </span>
-                <span className="font-bold text-white">{docxPercent}%</span>
+                <span className="font-bold text-slate-900 dark:text-white">{docxPercent}%</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-amber-400" /> TXT
+                  <span className="h-2 w-2 rounded-full bg-amber-500" /> TXT
                 </span>
-                <span className="font-bold text-white">{txtPercent}%</span>
+                <span className="font-bold text-slate-900 dark:text-white">{txtPercent}%</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-purple-400" /> MD
+                  <span className="h-2 w-2 rounded-full bg-pink-500" /> MD
                 </span>
-                <span className="font-bold text-white">{mdPercent}%</span>
+                <span className="font-bold text-slate-900 dark:text-white">{mdPercent}%</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-indigo-400" /> PPTX
+                  <span className="h-2 w-2 rounded-full bg-violet-400" /> PPTX
                 </span>
-                <span className="font-bold text-white">{pptxPercent}%</span>
+                <span className="font-bold text-slate-900 dark:text-white">{pptxPercent}%</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-[#0e3b34]" /> Others
+                  <span className="h-2 w-2 rounded-full bg-slate-300 dark:bg-zinc-700" /> Others
                 </span>
-                <span className="font-bold text-white">{otherPercent}%</span>
+                <span className="font-bold text-slate-900 dark:text-white">{otherPercent}%</span>
               </div>
             </div>
           </div>
@@ -367,11 +368,11 @@ export default function DashboardPage() {
       {/* ── 4. BOTTOM ROW: RECENT ACTIVITY, LATEST DOCUMENTS & QUICK ACTIONS ─ */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Column 1: Recent Activity */}
-        <div className="bg-[#051512] p-6 rounded-2xl border border-[#0d332e] shadow-md space-y-4 flex flex-col justify-between">
+        <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-sm space-y-4 flex flex-col justify-between transition-colors">
           <div>
-            <div className="flex justify-between items-center pb-3 border-b border-[#0d332e]">
-              <h3 className="font-bold text-white text-sm">Recent Activity</h3>
-              <Link href="/analytics" className="text-xs font-semibold text-teal-400 hover:underline">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100 dark:border-zinc-800">
+              <h3 className="font-bold text-slate-900 dark:text-white text-sm">Recent Activity</h3>
+              <Link href="/analytics" className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:underline">
                 View all
               </Link>
             </div>
@@ -385,14 +386,14 @@ export default function DashboardPage() {
                 { title: "Chat session created", detail: "Vector Database Basics", time: "1d ago" },
               ].map((act, idx) => (
                 <div key={idx} className="flex items-start gap-3 text-xs">
-                  <div className="p-1.5 rounded-lg shrink-0 mt-0.5 bg-teal-500/10 text-teal-400 border border-teal-500/20">
+                  <div className="p-1.5 rounded-lg shrink-0 mt-0.5 bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-800/60">
                     <Clock className="h-3.5 w-3.5" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="font-bold text-white">{act.title}</p>
-                    <p className="text-[11px] text-teal-400/70 truncate">{act.detail}</p>
+                    <p className="font-bold text-slate-900 dark:text-white">{act.title}</p>
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 truncate">{act.detail}</p>
                   </div>
-                  <span className="text-[10px] text-teal-500/60 shrink-0 font-medium">{act.time}</span>
+                  <span className="text-[10px] text-slate-400 dark:text-zinc-500 shrink-0 font-medium">{act.time}</span>
                 </div>
               ))}
             </div>
@@ -400,10 +401,10 @@ export default function DashboardPage() {
         </div>
 
         {/* Column 2: Latest Documents */}
-        <div className="bg-[#051512] p-6 rounded-2xl border border-[#0d332e] shadow-md space-y-4">
-          <div className="flex justify-between items-center pb-3 border-b border-[#0d332e]">
-            <h3 className="font-bold text-white text-sm">Latest Documents</h3>
-            <Link href="/documents" className="text-xs font-semibold text-teal-400 hover:underline">
+        <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-sm space-y-4 transition-colors">
+          <div className="flex justify-between items-center pb-3 border-b border-slate-100 dark:border-zinc-800">
+            <h3 className="font-bold text-slate-900 dark:text-white text-sm">Latest Documents</h3>
+            <Link href="/documents" className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:underline">
               View all
             </Link>
           </div>
@@ -411,28 +412,28 @@ export default function DashboardPage() {
           <div className="space-y-2.5">
             {userFiles.length > 0 ? (
               userFiles.slice(0, 5).map((doc, idx) => (
-                <div key={idx} className="flex items-center justify-between p-2 rounded-xl bg-[#09211d] border border-[#0e3b34]">
+                <div key={idx} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200/80 dark:border-zinc-800">
                   <div className="min-w-0">
-                    <p className="text-xs font-bold text-white truncate">📄 {doc.originalName}</p>
-                    <p className="text-[10px] text-teal-400/70 mt-0.5">
+                    <p className="text-xs font-bold text-slate-900 dark:text-white truncate">📄 {doc.originalName}</p>
+                    <p className="text-[10px] text-slate-500 dark:text-zinc-400 mt-0.5">
                       {doc.fileType} • {getFormatSize(doc.size)}
                     </p>
                   </div>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-500/20 text-teal-300 border border-teal-500/30 shrink-0">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 shrink-0">
                     Indexed
                   </span>
                 </div>
               ))
             ) : (
               defaultDocs.map((doc, idx) => (
-                <div key={idx} className="flex items-center justify-between p-2 rounded-xl bg-[#09211d] border border-[#0e3b34]">
+                <div key={idx} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200/80 dark:border-zinc-800">
                   <div className="min-w-0 pr-2">
-                    <p className="text-xs font-bold text-white truncate">{doc.name}</p>
-                    <p className="text-[10px] text-teal-400/70 mt-0.5">
+                    <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{doc.name}</p>
+                    <p className="text-[10px] text-slate-500 dark:text-zinc-400 mt-0.5">
                       {doc.type} • {doc.size} • {doc.pages}
                     </p>
                   </div>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-500/20 text-teal-300 border border-teal-500/30 shrink-0">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 shrink-0">
                     {doc.status}
                   </span>
                 </div>
@@ -442,90 +443,90 @@ export default function DashboardPage() {
         </div>
 
         {/* Column 3: Quick Actions */}
-        <div className="bg-[#051512] p-6 rounded-2xl border border-[#0d332e] shadow-md space-y-4">
-          <h3 className="font-bold text-white text-sm border-b border-[#0d332e] pb-3">
+        <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-sm space-y-4 transition-colors">
+          <h3 className="font-bold text-slate-900 dark:text-white text-sm border-b border-slate-100 dark:border-zinc-800 pb-3">
             Quick Actions
           </h3>
 
           <div className="space-y-2">
             <Link
               href="/upload"
-              className="flex items-center justify-between p-3 rounded-xl bg-[#09211d] border border-[#0e3b34] hover:border-teal-500/50 transition group"
+              className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200/80 dark:border-zinc-800 hover:border-purple-300 dark:hover:border-purple-700 hover:bg-purple-50/50 dark:hover:bg-purple-950/30 transition group"
             >
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-teal-500/10 text-teal-400">
+                <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300">
                   <Upload className="h-4 w-4" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-white group-hover:text-teal-300 transition">Upload Documents</p>
-                  <p className="text-[10px] text-teal-400/70">Add new files to your library</p>
+                  <p className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-purple-700 dark:group-hover:text-purple-300 transition">Upload Documents</p>
+                  <p className="text-[10px] text-slate-500 dark:text-zinc-400">Add new files to your library</p>
                 </div>
               </div>
-              <ChevronRight className="h-4 w-4 text-teal-500/60 group-hover:text-teal-300 transition" />
+              <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-purple-600 transition" />
             </Link>
 
             <Link
               href="/chat"
-              className="flex items-center justify-between p-3 rounded-xl bg-[#09211d] border border-[#0e3b34] hover:border-teal-500/50 transition group"
+              className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200/80 dark:border-zinc-800 hover:border-purple-300 dark:hover:border-purple-700 hover:bg-purple-50/50 dark:hover:bg-purple-950/30 transition group"
             >
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400">
+                <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300">
                   <MessageSquare className="h-4 w-4" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-white group-hover:text-teal-300 transition">Start New Chat</p>
-                  <p className="text-[10px] text-teal-400/70">Ask questions across docs</p>
+                  <p className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-purple-700 dark:group-hover:text-purple-300 transition">Start New Chat</p>
+                  <p className="text-[10px] text-slate-500 dark:text-zinc-400">Ask questions across docs</p>
                 </div>
               </div>
-              <ChevronRight className="h-4 w-4 text-teal-500/60 group-hover:text-teal-300 transition" />
+              <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-purple-600 transition" />
             </Link>
 
             <Link
               href="/documents"
-              className="flex items-center justify-between p-3 rounded-xl bg-[#09211d] border border-[#0e3b34] hover:border-teal-500/50 transition group"
+              className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200/80 dark:border-zinc-800 hover:border-purple-300 dark:hover:border-purple-700 hover:bg-purple-50/50 dark:hover:bg-purple-950/30 transition group"
             >
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400">
+                <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
                   <FolderKanban className="h-4 w-4" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-white group-hover:text-teal-300 transition">Create Collection</p>
-                  <p className="text-[10px] text-teal-400/70">Organize documents</p>
+                  <p className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-purple-700 dark:group-hover:text-purple-300 transition">Create Collection</p>
+                  <p className="text-[10px] text-slate-500 dark:text-zinc-400">Organize documents</p>
                 </div>
               </div>
-              <ChevronRight className="h-4 w-4 text-teal-500/60 group-hover:text-teal-300 transition" />
+              <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-purple-600 transition" />
             </Link>
 
             <Link
               href="/study"
-              className="flex items-center justify-between p-3 rounded-xl bg-[#09211d] border border-[#0e3b34] hover:border-teal-500/50 transition group"
+              className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200/80 dark:border-zinc-800 hover:border-purple-300 dark:hover:border-purple-700 hover:bg-purple-50/50 dark:hover:bg-purple-950/30 transition group"
             >
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
+                <div className="p-2 rounded-lg bg-pink-100 dark:bg-pink-900/50 text-pink-700 dark:text-pink-300">
                   <Brain className="h-4 w-4" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-white group-hover:text-teal-300 transition">AI Study Mode</p>
-                  <p className="text-[10px] text-teal-400/70">Quizzes, flashcards &amp; more</p>
+                  <p className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-purple-700 dark:group-hover:text-purple-300 transition">AI Study Mode</p>
+                  <p className="text-[10px] text-slate-500 dark:text-zinc-400">Quizzes, flashcards &amp; more</p>
                 </div>
               </div>
-              <ChevronRight className="h-4 w-4 text-teal-500/60 group-hover:text-teal-300 transition" />
+              <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-purple-600 transition" />
             </Link>
 
             <Link
               href="/analytics"
-              className="flex items-center justify-between p-3 rounded-xl bg-[#09211d] border border-[#0e3b34] hover:border-teal-500/50 transition group"
+              className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200/80 dark:border-zinc-800 hover:border-purple-300 dark:hover:border-purple-700 hover:bg-purple-50/50 dark:hover:bg-purple-950/30 transition group"
             >
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-purple-500/10 text-purple-400">
+                <div className="p-2 rounded-lg bg-violet-100 dark:bg-violet-900/50 text-violet-700 dark:text-violet-300">
                   <BarChart3 className="h-4 w-4" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-white group-hover:text-teal-300 transition">View Analytics</p>
-                  <p className="text-[10px] text-teal-400/70">Explore insights &amp; stats</p>
+                  <p className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-purple-700 dark:group-hover:text-purple-300 transition">View Analytics</p>
+                  <p className="text-[10px] text-slate-500 dark:text-zinc-400">Explore insights &amp; stats</p>
                 </div>
               </div>
-              <ChevronRight className="h-4 w-4 text-teal-500/60 group-hover:text-teal-300 transition" />
+              <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-purple-600 transition" />
             </Link>
           </div>
         </div>

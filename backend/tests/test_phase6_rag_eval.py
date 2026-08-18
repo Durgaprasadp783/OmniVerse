@@ -26,6 +26,10 @@ async def test_phase6_rag_retrieval_and_eval(monkeypatch):
         lambda text: [0.2] * 768,
     )
     monkeypatch.setattr(
+        "app.services.chat_service.generate_embedding",
+        lambda text: [0.2] * 768,
+    )
+    monkeypatch.setattr(
         "app.services.rag_service._call_gemini",
         lambda prompt: "Synthetic Gemini RAG answer based on retrieved document context.",
     )
