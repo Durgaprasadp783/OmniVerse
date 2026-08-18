@@ -35,6 +35,8 @@ export default function UploadBox({ onUploadSuccess }: UploadBoxProps) {
     return null;
   };
 
+  const [uploadStep, setUploadStep] = useState<string>("");
+
   const handleFileSelect = async (file: File) => {
     setError(null);
     const validationError = validateFile(file);
@@ -46,7 +48,27 @@ export default function UploadBox({ onUploadSuccess }: UploadBoxProps) {
     setSelectedFileName(file.name);
     try {
       setUploading(true);
+      setUploadStep("Uploading file...");
       const newFile = await fileService.uploadFile(file);
+      const targetFileId = newFile.id || newFile._id;
+
+      if (targetFileId) {
+        try {
+          setUploadStep("Extracting document text...");
+          await fileService.processFile(targetFileId);
+
+          setUploadStep("Generating vector chunks...");
+          await fileService.chunkFile(targetFileId);
+
+          setUploadStep("Generating Gemini vector embeddings...");
+          await fileService.embedFile(targetFileId);
+
+          newFile.processed = true;
+        } catch (indexingErr: any) {
+          console.warn("Indexing pipeline warning during upload:", indexingErr);
+        }
+      }
+
       setSelectedFileName(null);
       if (onUploadSuccess) {
         onUploadSuccess(newFile);
@@ -59,6 +81,7 @@ export default function UploadBox({ onUploadSuccess }: UploadBoxProps) {
       setError(msg);
     } finally {
       setUploading(false);
+      setUploadStep("");
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -130,7 +153,7 @@ export default function UploadBox({ onUploadSuccess }: UploadBoxProps) {
               <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
                 <div className="h-full bg-purple-600 animate-pulse w-full rounded-full" />
               </div>
-              <p className="text-xs text-purple-600 font-semibold">Processing vector indexing...</p>
+              <p className="text-xs text-purple-600 font-semibold">{uploadStep || "Processing vector indexing..."}</p>
             </div>
           )}
         </div>

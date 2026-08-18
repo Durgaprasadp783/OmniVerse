@@ -267,10 +267,14 @@ class FileService:
                 detail="File not found",
             )
 
-        if file_doc.get("fileType") != "application/pdf":
+        original_name = (file_doc.get("originalName") or "").lower()
+        file_type = (file_doc.get("fileType") or "").lower()
+        supported_exts = (".pdf", ".docx", ".txt")
+        
+        if not original_name.endswith(supported_exts) and "pdf" not in file_type and "document" not in file_type and "text" not in file_type:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Only PDF files are supported currently",
+                detail="Only PDF files are supported currently for text processing",
             )
 
         try:
@@ -284,6 +288,9 @@ class FileService:
         extracted_text = result.get("text", "")
         pages_count = result.get("pages", 0)
         pages_data = result.get("pagesData", [])
+
+        if not extracted_text:
+            extracted_text = f"[Document: {file_doc.get('originalName', 'file')} - {pages_count} pages]"
 
         now = datetime.now(timezone.utc)
         await files_collection.update_one(
@@ -345,8 +352,10 @@ class FileService:
         chunk_documents = []
         chunk_index = 0
 
-        if pages_data:
-            for page_info in pages_data:
+        valid_pages_data = [p for p in pages_data if p and isinstance(p, dict) and p.get("text") and p.get("text").strip()]
+
+        if valid_pages_data:
+            for page_info in valid_pages_data:
                 page_num = page_info.get("page")
                 page_text = page_info.get("text", "")
                 page_chunks = split_text_into_chunks(page_text, chunk_size=800, overlap=150)
@@ -361,7 +370,7 @@ class FileService:
                         ).to_dict()
                     )
                     chunk_index += 1
-        else:
+        elif file_doc.get("extractedText"):
             chunks = split_text_into_chunks(file_doc["extractedText"], chunk_size=800, overlap=150)
             for chunk_text in chunks:
                 chunk_documents.append(

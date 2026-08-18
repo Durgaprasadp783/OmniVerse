@@ -219,13 +219,20 @@ export default function ChatPage() {
     if (!fileId) return;
     try {
       setPrepping(true);
-      setPrepStatus("Extracting text and generating vector chunks...");
+      setPrepStatus("Extracting text from document...");
       await fileService.processFile(fileId);
+
+      setPrepStatus("Generating vector chunks...");
+      await fileService.chunkFile(fileId);
+
+      setPrepStatus("Generating Gemini vector embeddings...");
       await fileService.embedFile(fileId);
+
       setPrepStatus("Vector embeddings generated successfully!");
       setTimeout(() => setPrepStatus(""), 3000);
     } catch (err: any) {
-      setPrepStatus(err.response?.data?.detail || "Auto-prep failed.");
+      const detail = err.response?.data?.detail || err.message || "Auto-prep failed.";
+      setPrepStatus(`Error: ${detail}`);
     } finally {
       setPrepping(false);
     }
